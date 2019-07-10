@@ -30,13 +30,16 @@ def memoize(func):
 
 
 def get_time_index(target_time, time_records, nearest=False):
+    record_length = len(time_records)
     pos = np.searchsorted(time_records, target_time, side='right')
-    if nearest and pos > 0:
+
+    if nearest and 0 < pos < record_length:
         diff = abs(time_records[pos] - target_time)
         otherdiff = abs(time_records[pos - 1] - target_time)
         if diff > otherdiff:
             pos -= 1
-    return pos
+
+    return min(pos, record_length - 1)
 
 
 def find_wave_indices(z):
