@@ -143,10 +143,12 @@ def compute_elevation(displacement, ssh):
 
 
 def compute_significant_wave_height(waveheights):
+    waveheights = waveheights[np.isfinite(waveheights)]
+
     if len(waveheights) < 20:
         return np.nan
 
-    largest_third = np.nanquantile(waveheights, 2./3.)
+    largest_third = np.quantile(waveheights, 2./3.)
     return np.mean(waveheights[waveheights >= largest_third])
 
 

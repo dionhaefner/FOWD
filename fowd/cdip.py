@@ -131,6 +131,7 @@ def get_cdip_wave_records(filepath):
     num_flags_fired = {k: 0 for k in 'abcdefg'}
 
     last_wave_stop = 0
+    last_directional_time_idx = None
 
     direction_time = np.ascontiguousarray(data.waveTime.values)
     direction_frequencies = np.ascontiguousarray(data.waveFrequency.values)
@@ -239,14 +240,17 @@ def get_cdip_wave_records(filepath):
                 wave_params['start_time'], data.waveTime.values, nearest=True
             )
 
-            directional_params = get_directional_parameters(
-                direction_time[directional_time_idx],
-                direction_frequencies,
-                direction_spread[directional_time_idx],
-                direction_mean_direction[directional_time_idx],
-                direction_energy_density[directional_time_idx],
-                direction_peak_direction[directional_time_idx]
-            )
+            if directional_time_idx != last_directional_time_idx:
+                # only re-compute if index has changed
+                directional_params = get_directional_parameters(
+                    direction_time[directional_time_idx],
+                    direction_frequencies,
+                    direction_spread[directional_time_idx],
+                    direction_mean_direction[directional_time_idx],
+                    direction_energy_density[directional_time_idx],
+                    direction_peak_direction[directional_time_idx]
+                )
+                last_directional_time_idx = directional_time_idx
 
             this_wave_records.update(
                 add_prefix(directional_params, 'direction')
