@@ -30,7 +30,9 @@ setup(
         'numpy'
     ],
     install_requires=[
+        'bottleneck',
         'click',
+        'h5netcdf',
         'numpy',
         'scipy',
         'tqdm',

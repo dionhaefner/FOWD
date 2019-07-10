@@ -108,7 +108,10 @@ def add_surface_elevation(data):
 
 def relative_pid():
     # Returns relative PID of a pool process
-    return multiprocessing.current_process()._identity[0]
+    try:
+        return multiprocessing.current_process()._identity[0]
+    except IndexError:
+        return 1
 
 
 def get_cdip_wave_records(filepath):
@@ -116,9 +119,9 @@ def get_cdip_wave_records(filepath):
 
     wave_records = collections.defaultdict(list)
 
-    t = data['xyzTime'].values
-    z = data['xyzZDisplacement'].values
-    z_normalized = data['xyzSurfaceElevation'].values
+    t = np.ascontiguousarray(data['xyzTime'].values)
+    z = np.ascontiguousarray(data['xyzZDisplacement'].values)
+    z_normalized = np.ascontiguousarray(data['xyzSurfaceElevation'].values)
 
     water_depth = np.float64(data.metaWaterDepth.values)
 
@@ -129,12 +132,12 @@ def get_cdip_wave_records(filepath):
 
     last_wave_stop = 0
 
-    direction_time = data.waveTime.values
-    direction_frequencies = data.waveFrequency.values
-    direction_spread = data.waveSpread.values
-    direction_mean_direction = data.waveMeanDirection.values
-    direction_energy_density = data.waveEnergyDensity.values
-    direction_peak_direction = data.waveDp.values
+    direction_time = np.ascontiguousarray(data.waveTime.values)
+    direction_frequencies = np.ascontiguousarray(data.waveFrequency.values)
+    direction_spread = np.ascontiguousarray(data.waveSpread.values)
+    direction_mean_direction = np.ascontiguousarray(data.waveMeanDirection.values)
+    direction_energy_density = np.ascontiguousarray(data.waveEnergyDensity.values)
+    direction_peak_direction = np.ascontiguousarray(data.waveDp.values)
 
     station_meta = get_station_meta(
         filepath,
@@ -256,9 +259,6 @@ def get_cdip_wave_records(filepath):
             if local_wave_id % 100 == 0:
                 pbar.set_postfix(dict(wave_id=str(local_wave_id)))
 
-            if local_wave_id > 100000:
-                break
-
     return wave_records, num_flags_fired
 
 
@@ -271,17 +271,15 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     num_inputs = len(station_files)
 
     if nproc is None:
-        nproc = min(multiprocessing.cpu_count(), num_inputs)
+        nproc = multiprocessing.cpu_count()
+
+    nproc = min(nproc, num_inputs)
 
     wave_records = [[] for _ in range(num_inputs)]
 
     # process deployments in parallel
     try:
         with contextlib.ExitStack() as es:
-            executor = es.enter_context(
-                concurrent.futures.ProcessPoolExecutor(nproc)
-            )
-
             pbar = es.enter_context(
                 tqdm.tqdm(
                     total=num_inputs, position=nproc, unit='file',
@@ -289,19 +287,32 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                 )
             )
 
-            future_to_idx = {
-                executor.submit(get_cdip_wave_records, station_file): i
-                for i, station_file in enumerate(station_files)
-            }
+            if nproc > 1:
+                executor = es.enter_context(
+                    concurrent.futures.ProcessPoolExecutor(nproc)
+                )
+                future_to_idx = {
+                    executor.submit(get_cdip_wave_records, station_file): i
+                    for i, station_file in enumerate(station_files)
+                }
 
-            for future in concurrent.futures.as_completed(future_to_idx):
-                i = future_to_idx[future]
-                wave_records[i], qc_flags_fired = future.result()
+                for future in concurrent.futures.as_completed(future_to_idx):
+                    i = future_to_idx[future]
+                    wave_records[i], qc_flags_fired = future.result()
 
-                qc_flag_str = '\n'.join(f'\t- {key}: {val}' for key, val in qc_flags_fired.items())
-                logger.warn(f'QC flags fired for file {station_files[i]}:\n{qc_flag_str}')
+                    qc_flag_str = '\n'.join(f'\t- {key}: {val}' for key, val in qc_flags_fired.items())
+                    logger.warn(f'QC flags fired for file {station_files[i]}:\n{qc_flag_str}')
 
-                pbar.update(1)
+                    pbar.update(1)
+            else:
+                for i, result in enumerate(map(get_cdip_wave_records, station_files)):
+                    wave_records[i], qc_flags_fired = result
+
+                    qc_flag_str = '\n'.join(f'\t- {key}: {val}' for key, val in qc_flags_fired.items())
+                    logger.warn(f'QC flags fired for file {station_files[i]}:\n{qc_flag_str}')
+
+                    pbar.update(1)
+
     finally:
         # reset cursor position
         print('\n' * (nproc + 1))

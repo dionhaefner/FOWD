@@ -406,4 +406,4 @@ def create_output_dataset(wave_records, station_name):
 
 def write_records(wave_records, filename, station_name):
     out_dataset = create_output_dataset(wave_records, station_name)
-    out_dataset.to_netcdf(filename, format='NETCDF4')
+    out_dataset.to_netcdf(filename, engine='h5netcdf', format='NETCDF4')
