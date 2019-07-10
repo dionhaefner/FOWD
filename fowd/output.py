@@ -330,7 +330,7 @@ COORD_ATTRS = dict(
 )
 
 
-def create_output_dataset(wave_records_grouped, station_name):
+def create_output_dataset(wave_records, station_name):
     dataset_metadata = dict(
         id='FOWD_%s' % station_name,
         title='',
@@ -356,8 +356,8 @@ def create_output_dataset(wave_records_grouped, station_name):
         geospatial_vertical_units='meters',
         geospatial_vertical_origin='sea surface height',
         geospatial_vertical_positive='up',
-        time_coverage_start=str(wave_records_grouped['wave_start_time'].min()),
-        time_coverage_end=str(wave_records_grouped['wave_end_time'].max()),
+        time_coverage_start=str(wave_records['wave_start_time'].min()),
+        time_coverage_end=str(wave_records['wave_end_time'].max()),
         source='insitu observations',
         license='These data may be redistributed and used without restriction.',
         acknowledgment=(
@@ -378,7 +378,7 @@ def create_output_dataset(wave_records_grouped, station_name):
 
     data_vars = {
         name: (meta['dims'], prepare_data(
-            wave_records_grouped[name]), meta['attrs'])
+            wave_records[name]), meta['attrs'])
         for name, meta in DATASET_VARIABLES.items()
     }
 
@@ -391,7 +391,7 @@ def create_output_dataset(wave_records_grouped, station_name):
         data_vars=data_vars,
         coords={
             'meta_station_name': [station_name],
-            'wave_id_local': wave_records_grouped['wave_id_local'],
+            'wave_id_local': wave_records['wave_id_local'],
             'wave_raw_elevation_time_step': np.arange(RAW_ELEVATION_SIZE),
             'meta_frequency_band': np.arange(len(FREQUENCY_INTERVALS)),
         },
@@ -405,9 +405,5 @@ def create_output_dataset(wave_records_grouped, station_name):
 
 
 def write_records(wave_records, filename, station_name):
-    wave_records_grouped = {
-        k: np.array([v[k] for v in wave_records]) for k in wave_records[0].keys()
-    }
-
-    out_dataset = create_output_dataset(wave_records_grouped, station_name)
+    out_dataset = create_output_dataset(wave_records, station_name)
     out_dataset.to_netcdf(filename, format='NETCDF4')

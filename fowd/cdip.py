@@ -114,7 +114,7 @@ def relative_pid():
 def get_cdip_wave_records(filepath):
     data = get_cdip_data(filepath)
 
-    wave_records = []
+    wave_records = collections.defaultdict(list)
 
     t = data['xyzTime'].values
     z = data['xyzZDisplacement'].values
@@ -248,8 +248,9 @@ def get_cdip_wave_records(filepath):
             this_wave_records.update(
                 add_prefix(directional_params, 'direction')
             )
+            for var in this_wave_records.keys():
+                wave_records[var].append(this_wave_records[var])
 
-            wave_records.append(this_wave_records)
             local_wave_id += 1
 
             if local_wave_id % 100 == 0:
@@ -305,13 +306,15 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
         # reset cursor position
         print('\n' * (nproc + 1))
 
-    # flatten records
-    wave_records = itertools.chain.from_iterable(wave_records)
+    # append records and convert to NumPy arrays
+    wave_records = {
+        key: np.array(
+            list(itertools.chain.from_iterable(subrecord[key] for subrecord in wave_records))
+        ) for key in wave_records[0].keys()
+    }
 
     # fix local id to be unique for the whole station
-    wave_records = [
-        {**row, 'wave_id_local': i} for i, row in enumerate(wave_records)
-    ]
+    wave_records['wave_id_local'] = np.arange(len(wave_records['wave_id_local']))
 
     # write output
     out_file = os.path.join(out_folder, f'fowd_cdip_{station_id}.nc')
