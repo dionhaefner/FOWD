@@ -127,6 +127,10 @@ def compute_wave_height(crest_height, trough_depth):
 
 # aggregates
 
+def integrate(y, x):
+    return np.trapz(y, x)
+
+
 def compute_ssh(displacement):
     return np.nanmean(displacement)
 
@@ -151,13 +155,11 @@ def compute_mean_wave_period(wave_periods):
 
 
 def compute_skewness(elevation):
-    skew = scipy.stats.skew(elevation, nan_policy='omit')
-    # scipy's skew seems to return masked arrays sometimes
-    return np.float64(skew)
+    return np.nansum(elevation ** 3) / np.nansum(elevation ** 2) ** (3 / 2)
 
 
 def compute_excess_kurtosis(elevation):
-    return scipy.stats.kurtosis(elevation, nan_policy='omit', fisher=True)
+    return np.nansum(elevation ** 4) / np.nansum(elevation ** 2) ** 2 - 3
 
 
 def compute_valid_data_ratio(elevation):
@@ -189,7 +191,7 @@ def get_interval_mask(domain, lower_limit=None, upper_limit=None):
 
 def compute_definite_integral(domain, quantity, lower_limit=None, upper_limit=None):
     mask = get_interval_mask(domain, lower_limit, upper_limit)
-    return np.trapz(quantity[mask], domain[mask])
+    return integrate(quantity[mask], domain[mask])
 
 
 def compute_energy_spectrum(wave_spectral_density, gravity, density):
@@ -198,8 +200,8 @@ def compute_energy_spectrum(wave_spectral_density, gravity, density):
 
 def compute_peak_frequency(frequencies, wave_spectral_density):
     return (
-        np.trapz(frequencies * wave_spectral_density ** 4, frequencies)
-        / np.trapz(wave_spectral_density ** 4, frequencies)
+        integrate(frequencies * wave_spectral_density ** 4, frequencies)
+        / integrate(wave_spectral_density ** 4, frequencies)
     )
 
 
@@ -220,9 +222,9 @@ def frequency_to_wavenumber(frequency, water_depth, gravity):
 
 def compute_nth_moment(frequencies, wave_spectral_density, n):
     if n == 0:
-        return np.trapz(wave_spectral_density, frequencies)
+        return integrate(wave_spectral_density, frequencies)
 
-    return np.trapz(frequencies ** n * wave_spectral_density, frequencies)
+    return integrate(frequencies ** n * wave_spectral_density, frequencies)
 
 
 def compute_mean_wave_period_spectral(zeroth_moment, frequencies, wave_spectral_density):
@@ -255,7 +257,7 @@ def compute_bandwidth_broadness(zeroth_moment, frequencies, wave_spectral_densit
 
 def compute_bandwidth_quality(zeroth_moment, frequencies, wave_spectral_density):
     q_p = 2 / zeroth_moment ** 2 * \
-        np.trapz(frequencies * wave_spectral_density ** 2, frequencies)
+        integrate(frequencies * wave_spectral_density ** 2, frequencies)
     return 1. / (np.sqrt(np.pi) * q_p)
 
 
@@ -291,9 +293,9 @@ def circular_convolution(coords, angle, operand):
         return np.nan
 
     x, y = np.sin(np.radians(angle)), np.cos(np.radians(angle))
-    norm = np.trapz(operand, x=coords)
-    xconv = np.trapz(x * operand, x=coords) / norm
-    yconv = np.trapz(y * operand, x=coords) / norm
+    norm = integrate(operand, x=coords)
+    xconv = integrate(x * operand, x=coords) / norm
+    yconv = integrate(y * operand, x=coords) / norm
     res = np.arctan2(xconv, yconv)
     res_deg = np.degrees(res)
     if res_deg < 0:
