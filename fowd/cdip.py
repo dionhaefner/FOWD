@@ -281,6 +281,10 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     wave_records = [[] for _ in range(num_inputs)]
 
+    def handle_qc_flags(qc_flags_fired, filename):
+        qc_flag_str = '\n'.join(f'\t- {key}: {val}' for key, val in qc_flags_fired.items())
+        logger.warn(f'QC flags fired for file {filename}:\n{qc_flag_str}')
+
     # process deployments in parallel
     try:
         with contextlib.ExitStack() as es:
@@ -304,17 +308,13 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                     i = future_to_idx[future]
                     wave_records[i], qc_flags_fired = future.result()
 
-                    qc_flag_str = '\n'.join(f'\t- {key}: {val}' for key, val in qc_flags_fired.items())
-                    logger.warn(f'QC flags fired for file {station_files[i]}:\n{qc_flag_str}')
-
+                    handle_qc_flags(qc_flags_fired, station_files[i])
                     pbar.update(1)
             else:
                 for i, result in enumerate(map(get_cdip_wave_records, station_files)):
                     wave_records[i], qc_flags_fired = result
 
-                    qc_flag_str = '\n'.join(f'\t- {key}: {val}' for key, val in qc_flags_fired.items())
-                    logger.warn(f'QC flags fired for file {station_files[i]}:\n{qc_flag_str}')
-
+                    handle_qc_flags(qc_flags_fired, station_files[i])
                     pbar.update(1)
 
     finally:

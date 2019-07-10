@@ -11,7 +11,8 @@ import scipy.integrate
 from .constants import (
     GRAVITY, DENSITY, FREQUENCY_INTERVALS, RAW_ELEVATION_SIZE,
     QC_FLAG_A_THRESHOLD, QC_FLAG_B_THRESHOLD, QC_FLAG_C_THRESHOLD,
-    QC_FLAG_D_THRESHOLD, QC_FLAG_F_THRESHOLD, QC_FLAG_G_THRESHOLD
+    QC_FLAG_D_THRESHOLD, QC_FLAG_F_THRESHOLD, QC_FLAG_G_THRESHOLD,
+    SPECTRUM_WINDOW_SIZE,
 )
 
 
@@ -102,7 +103,7 @@ def compute_period(t, z):
     t_start = t[0] - z[0] * (t[1] - t[0]) / (z[1] - z[0])
     t_end = t[-2] - z[-2] * (t[-1] - t[-2]) / (z[-1] - z[-2])
 
-    period = np.float64(t_end - t_start) / 1e9
+    period = np.float64(t_end - t_start) / 1e9  # convert from nanoseconds
     return period
 
 
@@ -182,7 +183,9 @@ def compute_spectral_density_smooth(elevation, sample_rate):
     elevation[np.isnan(elevation)] = 0.
 
     def noop(x): return x  # data is already detrended
-    return scipy.signal.welch(elevation, 1 / sample_rate, nperseg=128, detrend=noop)
+
+    nperseg = SPECTRUM_WINDOW_SIZE / sample_rate
+    return scipy.signal.welch(elevation, 1 / sample_rate, nperseg=nperseg, detrend=noop)
 
 
 def get_interval_mask(domain, lower_limit=None, upper_limit=None):
