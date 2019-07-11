@@ -9,3 +9,4 @@ def setup_file_logger(logfile):
         filename=logfile,
         filemode='w'
     )
+    logging.captureWarnings(True)
