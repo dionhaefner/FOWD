@@ -76,8 +76,7 @@ def get_cdip_data(filepath):
 
     def drop_unnecessary(ds):
         xyz_time = (
-            ds['xyzStartTime']
-            + (1e9 * ds['xyzCount'] / ds['xyzSampleRate']).astype('timedelta64[ns]')
+            ds['xyzStartTime'] + (np.timedelta64(1, 's') * ds['xyzCount'] / ds['xyzSampleRate'])
         )
 
         for v in ds.variables:
@@ -116,16 +115,11 @@ def relative_pid():
 
 
 def get_cdip_wave_records(filepath):
+    # parse file into xarray Dataset
     data = get_cdip_data(filepath)
 
+    # initialize counters and containers
     wave_records = collections.defaultdict(list)
-
-    t = np.ascontiguousarray(data['xyzTime'].values)
-    z = np.ascontiguousarray(data['xyzZDisplacement'].values)
-    z_normalized = np.ascontiguousarray(data['xyzSurfaceElevation'].values)
-
-    water_depth = np.float64(data.metaWaterDepth.values)
-
     wave_params_history = np.array([], dtype=WAVE_PARAMS_DTYPE)
     history_length = np.timedelta64(WAVE_HISTORY_LENGTH, 'm')
 
@@ -134,6 +128,15 @@ def get_cdip_wave_records(filepath):
     last_wave_stop = 0
     last_directional_time_idx = None
 
+    local_wave_id = 0
+
+    # extract relevant quantities from xarray dataset
+    t = np.ascontiguousarray(data['xyzTime'].values)
+    z = np.ascontiguousarray(data['xyzZDisplacement'].values)
+    z_normalized = np.ascontiguousarray(data['xyzSurfaceElevation'].values)
+
+    water_depth = np.float64(data.metaWaterDepth.values)
+
     direction_time = np.ascontiguousarray(data.waveTime.values)
     direction_frequencies = np.ascontiguousarray(data.waveFrequency.values)
     direction_spread = np.ascontiguousarray(data.waveSpread.values)
@@ -141,6 +144,7 @@ def get_cdip_wave_records(filepath):
     direction_energy_density = np.ascontiguousarray(data.waveEnergyDensity.values)
     direction_peak_direction = np.ascontiguousarray(data.waveDp.values)
 
+    # pre-compute station metadata
     station_meta = get_station_meta(
         filepath,
         data.attrs['uuid'],
@@ -150,8 +154,9 @@ def get_cdip_wave_records(filepath):
         data.xyzSampleRate
     )
 
-    local_wave_id = 0
+    del data
 
+    # run processing
     pbar_kwargs = dict(
         total=len(z), unit_scale=True, position=(relative_pid() - 1),
         dynamic_ncols=True, desc=os.path.basename(filepath),
@@ -240,7 +245,7 @@ def get_cdip_wave_records(filepath):
 
             # compute directional quantities
             directional_time_idx = get_time_index(
-                wave_params['start_time'], data.waveTime.values, nearest=True
+                wave_params['start_time'], direction_time, nearest=True
             )
 
             if directional_time_idx != last_directional_time_idx:
@@ -272,7 +277,11 @@ def get_cdip_wave_records(filepath):
         pbar.update(len(z) - wave_stop)
 
     # convert record lists to NumPy arrays
-    wave_records = {k: np.array(v) for k, v in wave_records.items()}
+    for key, val in wave_records.items():
+        kwargs = {}
+        if np.issubdtype(np.array([val[0]]).dtype, np.floating):
+            kwargs['dtype'] = 'float32'
+        wave_records[key] = np.array(val, **kwargs)
 
     return wave_records, num_flags_fired
 
@@ -286,6 +295,7 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     station_files = sorted(glob.glob(glob_pattern))
 
     num_inputs = len(station_files)
+    num_done = 0
 
     if num_inputs == 0:
         raise RuntimeError('Given input folder does not contain any valid station files')
@@ -297,11 +307,6 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     wave_records = [[] for _ in range(num_inputs)]
 
-    def handle_qc_flags(qc_flags_fired, filename):
-        qc_flag_str = '\n'.join(f'\t- {key}: {val}' for key, val in qc_flags_fired.items())
-        logger.warn(f'QC flags fired for file {filename}:\n{qc_flag_str}')
-
-    # process deployments in parallel
     try:
         with contextlib.ExitStack() as es:
             pbar = es.enter_context(
@@ -312,7 +317,25 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                 )
             )
 
+            def handle_result(i, result):
+                nonlocal num_done
+                num_done += 1
+
+                wave_records[i], qc_flags_fired = result
+
+                filename = station_files[i]
+                logger.info(
+                    'Processing finished for file %s (%s/%s done)', filename, num_done, num_inputs
+                )
+                logger.info('  Found %s waves', len(wave_records[i]["wave_id_local"]))
+                logger.info('  Number of QC flags fired:')
+                for key, val in qc_flags_fired.items():
+                    logger.info(f'      {key} {val:>6d}')
+
+                pbar.update(1)
+
             if nproc > 1:
+                # process deployments in parallel
                 executor = es.enter_context(
                     concurrent.futures.ProcessPoolExecutor(nproc)
                 )
@@ -322,17 +345,11 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                 }
 
                 for future in concurrent.futures.as_completed(future_to_idx):
-                    i = future_to_idx[future]
-                    wave_records[i], qc_flags_fired = future.result()
-
-                    handle_qc_flags(qc_flags_fired, station_files[i])
-                    pbar.update(1)
+                    handle_result(future_to_idx[future], future.result())
             else:
+                # sequential shortcut
                 for i, result in enumerate(map(get_cdip_wave_records, station_files)):
-                    wave_records[i], qc_flags_fired = result
-
-                    handle_qc_flags(qc_flags_fired, station_files[i])
-                    pbar.update(1)
+                    handle_result(i, result)
 
     finally:
         # reset cursor position

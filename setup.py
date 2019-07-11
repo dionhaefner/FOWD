@@ -32,7 +32,7 @@ setup(
     install_requires=[
         'bottleneck',
         'click',
-        'h5netcdf',
+        'netcdf4',
         'numpy',
         'scipy>=1.0',
         'tqdm',

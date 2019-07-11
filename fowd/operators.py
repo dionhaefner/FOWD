@@ -103,7 +103,7 @@ def compute_period(t, z):
     t_start = t[0] - z[0] * (t[1] - t[0]) / (z[1] - z[0])
     t_end = t[-2] - z[-2] * (t[-1] - t[-2]) / (z[-1] - z[-2])
 
-    period = np.float64(t_end - t_start) / 1e9  # convert from nanoseconds
+    period = (t_end - t_start) / np.timedelta64(1, 's')  # convert to seconds
     return period
 
 
@@ -112,7 +112,7 @@ def compute_zero_crossing_wavelength(period, water_depth, gravity=GRAVITY):
 
 
 def compute_maximum_slope(t, elevation):
-    t_seconds = 1e-9 * t.astype(np.float64)
+    t_seconds = (t - t[0]) / np.timedelta64(1, 's')
     return np.nanmax(np.abs(np.gradient(elevation, t_seconds)))
 
 
@@ -328,7 +328,7 @@ def check_flag_b(time, elevation, zero_crossing_periods, threshold=QC_FLAG_B_THR
     if not np.any(np.isfinite(elevation)) or not np.any(np.isfinite(zero_crossing_periods)):
         return True
 
-    time_in_seconds = 1e-9 * time.astype(np.float64)
+    time_in_seconds = (time - time[0]) / np.timedelta64(1, 's')
     limit_rate_of_change = (
         2 * np.pi * np.nanstd(elevation) / np.nanmean(zero_crossing_periods)
         * np.sqrt(2 * np.log(len(zero_crossing_periods)))
@@ -452,7 +452,7 @@ def get_wave_parameters(local_id, t, z, water_depth, filepath):
 
 def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_depth,
                        gravity=GRAVITY, density=DENSITY):
-    sample_rate = np.around(1e-9 * np.diff(time).astype('float64'), 6)
+    sample_rate = np.around(np.diff(time) / np.timedelta64(1, 's'), 6)
     assert len(np.unique(sample_rate)) == 1
     sample_rate = sample_rate[0]
 
