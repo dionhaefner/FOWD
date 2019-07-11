@@ -161,11 +161,11 @@ def compute_mean_wave_period(wave_periods):
 
 
 def compute_skewness(elevation):
-    return np.nansum(elevation ** 3) / np.nansum(elevation ** 2) ** (3 / 2)
+    return np.nanmean(elevation ** 3) / np.nanmean(elevation ** 2) ** (3 / 2)
 
 
 def compute_excess_kurtosis(elevation):
-    return np.nansum(elevation ** 4) / np.nansum(elevation ** 2) ** 2 - 3
+    return np.nanmean(elevation ** 4) / np.nanmean(elevation ** 2) ** 2 - 3
 
 
 def compute_valid_data_ratio(elevation):
@@ -263,7 +263,7 @@ def compute_bandwidth_broadness(zeroth_moment, frequencies, wave_spectral_densit
     return narrowness
 
 
-def compute_bandwidth_quality(zeroth_moment, frequencies, wave_spectral_density):
+def compute_bandwidth_peakedness(zeroth_moment, frequencies, wave_spectral_density):
     q_p = 2 / zeroth_moment ** 2 * \
         integrate(frequencies * wave_spectral_density ** 2, frequencies)
     return 1. / (np.sqrt(np.pi) * q_p)
@@ -484,12 +484,19 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
 
     steepness = compute_steepness(zeroth_moment, peak_wavenumber)
 
-    bandwidth_quality = compute_bandwidth_quality(zeroth_moment, frequencies, wave_spectral_density)
+    bandwidth_peakedness = compute_bandwidth_peakedness(
+        zeroth_moment, frequencies, wave_spectral_density
+    )
     bandwidth_narrowness = compute_bandwidth_narrowness(
         zeroth_moment, frequencies, wave_spectral_density
     )
 
-    bfi = compute_benjamin_feir_index(bandwidth_quality, steepness, water_depth, peak_wavenumber)
+    bfi_peakedness = compute_benjamin_feir_index(
+        bandwidth_peakedness, steepness, water_depth, peak_wavenumber
+    )
+    bfi_narrowness = compute_benjamin_feir_index(
+        bandwidth_narrowness, steepness, water_depth, peak_wavenumber
+    )
 
     spectral_energy_density = compute_energy_spectrum(wave_spectral_density, gravity, density)
 
@@ -514,9 +521,10 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'peak_wave_period': peak_period,
         'peak_wavelength': peak_wavelength,
         'steepness': steepness,
-        'bandwidth_quality_factor': bandwidth_quality,
+        'bandwidth_peakedness': bandwidth_peakedness,
         'bandwidth_narrowness': bandwidth_narrowness,
-        'benjamin_feir_index': bfi,
+        'benjamin_feir_index_peakedness': bfi_peakedness,
+        'benjamin_feir_index_narrowness': bfi_narrowness,
 
         'energy_in_frequency_interval': energy_in_frequency_interval,
     }

@@ -232,7 +232,7 @@ for interval in SEA_STATE_INTERVALS:
                 long_name='Dominant wave steepness',
             )
         ),
-        f'sea_state_{interval}m_bandwidth_quality_factor': dict(
+        f'sea_state_{interval}m_bandwidth_peakedness': dict(
             dims=('meta_station_name', 'wave_id_local',),
             attrs=dict(
                 long_name=(
@@ -245,6 +245,18 @@ for interval in SEA_STATE_INTERVALS:
             dims=('meta_station_name', 'wave_id_local',),
             attrs=dict(
                 long_name='Spectral bandwidth estimated through spectral narrowness',
+            )
+        ),
+        f'sea_state_{interval}m_benjamin_feir_index_peakedness': dict(
+            dims=('meta_station_name', 'wave_id_local',),
+            attrs=dict(
+                long_name='Benjamin-Feir index estimated through steepness and peakedness',
+            )
+        ),
+        f'sea_state_{interval}m_benjamin_feir_index_narrowness': dict(
+            dims=('meta_station_name', 'wave_id_local',),
+            attrs=dict(
+                long_name='Benjamin-Feir index estimated through steepness and narrowness',
             )
         ),
         f'sea_state_{interval}m_energy_in_frequency_interval': dict(
@@ -327,14 +339,28 @@ COORD_ATTRS = dict(
             'Use wave_id_global instead.'
         ),
     ),
+    wave_raw_elevation_time_step=dict(
+        long_name='Dummy variable for elevation time step',
+        comment='Steps spaced according to meta_sampling_rate'
+    ),
+    meta_frequency_band=dict(
+        long_name='Index of frequency band',
+        comment=(
+            'Frequency ranges are given by '
+            '(meta_frequency_band_lower, meta_frequency_band_upper)'
+        ),
+    ),
 )
 
 
 def create_output_dataset(wave_records, station_name):
     dataset_metadata = dict(
-        id='FOWD_%s' % station_name,
-        title='',
-        summary='',
+        id=f'FOWD_{station_name}',
+        title=f'Free Ocean Wave Dataset (FOWD), station {station_name}',
+        summary=(
+            'A catalogue of ocean waves and associated sea states, derived from in-situ '
+            'measurement data.'
+        ),
         project='Free Ocean Wave Dataset (FOWD)',
         keywords=(
             'EARTH SCIENCE, OCEANS, OCEAN WAVES, GRAVITY WAVES, WIND WAVES, '
