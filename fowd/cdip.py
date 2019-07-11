@@ -5,9 +5,9 @@ Process CDIP input files into FOWD datasets.
 """
 
 import os
+import sys
 import glob
 import logging
-import itertools
 import contextlib
 import collections
 import multiprocessing
@@ -107,10 +107,11 @@ def add_surface_elevation(data):
 
 
 def relative_pid():
-    # Returns relative PID of a pool process
+    # get relative PID of a pool process
     try:
         return multiprocessing.current_process()._identity[0]
     except IndexError:
+        # not multiprocessing
         return 1
 
 
@@ -256,6 +257,8 @@ def get_cdip_wave_records(filepath):
             this_wave_records.update(
                 add_prefix(directional_params, 'direction')
             )
+
+            # append to global record
             for var in this_wave_records.keys():
                 wave_records[var].append(this_wave_records[var])
 
@@ -263,6 +266,14 @@ def get_cdip_wave_records(filepath):
                 pbar.set_postfix(dict(wave_id=str(local_wave_id)))
 
             local_wave_id += 1
+
+            if local_wave_id > 5000:
+                break
+
+        pbar.update(len(z) - wave_stop)
+
+    # convert record lists to NumPy arrays
+    wave_records = {k: np.array(v) for k, v in wave_records.items()}
 
     return wave_records, num_flags_fired
 
@@ -292,7 +303,8 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
             pbar = es.enter_context(
                 tqdm.tqdm(
                     total=num_inputs, position=nproc, unit='file',
-                    desc='Processing files', dynamic_ncols=True, smoothing=0
+                    desc='Processing files', dynamic_ncols=True,
+                    smoothing=0
                 )
             )
 
@@ -320,13 +332,12 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     finally:
         # reset cursor position
-        print('\n' * (nproc + 1))
+        sys.stderr.write('\n' * (nproc + 2))
 
-    # append records and convert to NumPy arrays
+    # concatenate subrecords
     wave_records = {
-        key: np.array(
-            list(itertools.chain.from_iterable(subrecord[key] for subrecord in wave_records))
-        ) for key in wave_records[0].keys()
+        key: np.concatenate([subrecord[key] for subrecord in wave_records])
+        for key in wave_records[0].keys()
     }
 
     # fix local id to be unique for the whole station

@@ -6,7 +6,7 @@ Our primary data source will be the CDIP buoys:
 
 - 151 buoys
 - XYZ displacement at measurement frequency 1.28Hz
-- Total data size 518GB containing more than 1e10 waves
+- Total data size 235GB containing more than 1e10 waves
 - Most buoys in coastal regions, some in deep water (how many?)
 
 However, this specification should be flexible enough to incorporate additional future datasets should they become available.

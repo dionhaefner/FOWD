@@ -174,18 +174,15 @@ def compute_valid_data_ratio(elevation):
 
 def compute_spectral_density(elevation, sample_rate):
     elevation[np.isnan(elevation)] = 0.
-
-    def noop(x): return x  # data is already detrended
-    return scipy.signal.periodogram(elevation, 1 / sample_rate, detrend=noop)
+    return scipy.signal.periodogram(elevation, 1 / sample_rate, detrend=False)
 
 
 def compute_spectral_density_smooth(elevation, sample_rate):
     elevation[np.isnan(elevation)] = 0.
-
-    def noop(x): return x  # data is already detrended
-
-    nperseg = SPECTRUM_WINDOW_SIZE / sample_rate
-    return scipy.signal.welch(elevation, 1 / sample_rate, nperseg=nperseg, detrend=noop)
+    sample_rate = float(sample_rate)
+    nperseg = round(SPECTRUM_WINDOW_SIZE / sample_rate)
+    nfft = 2 ** (math.ceil(math.log(nperseg, 2)))  # round to nearest power of 2
+    return scipy.signal.welch(elevation, 1 / sample_rate, nperseg=nperseg, nfft=nfft, detrend=False)
 
 
 def get_interval_mask(domain, lower_limit=None, upper_limit=None):
