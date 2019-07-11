@@ -267,9 +267,6 @@ def get_cdip_wave_records(filepath):
 
             local_wave_id += 1
 
-            if local_wave_id > 5000:
-                break
-
         pbar.update(len(z) - wave_stop)
 
     # convert record lists to NumPy arrays
@@ -279,12 +276,17 @@ def get_cdip_wave_records(filepath):
 
 
 def process_cdip_station(station_folder, out_folder, nproc=None):
+    station_folder = os.path.normpath(station_folder)
     assert os.path.isdir(station_folder)
+
     station_id = os.path.basename(station_folder)
     glob_pattern = os.path.join(station_folder, f'{station_id}_d??.nc')
     station_files = sorted(glob.glob(glob_pattern))
 
     num_inputs = len(station_files)
+
+    if num_inputs == 0:
+        raise RuntimeError('Given input folder does not contain any valid station files')
 
     if nproc is None:
         nproc = multiprocessing.cpu_count()
