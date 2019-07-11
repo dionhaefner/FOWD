@@ -34,13 +34,13 @@ setup(
         'click',
         'h5netcdf',
         'numpy',
-        'scipy',
+        'scipy>=1.0',
         'tqdm',
         'xarray',
     ],
     # CLI
     entry_points='''
         [console_scripts]
-        fowd=fowd.main:entrypoint
+        fowd=fowd.cli:entrypoint
     ''',
 )

@@ -50,8 +50,8 @@ WAVE_PARAMS_KEYS = [key for key, _ in WAVE_PARAMS_DTYPE]
 
 def mask_invalid(data):
     xyz_invalid = (data['xyzFlagPrimary'] > 2) | (data['xyzFlagSecondary'] > 0)
-
     data['xyzZDisplacement'][xyz_invalid] = np.nan
+
     time_invalid = (data['waveFlagPrimary'] > 2) | (data['waveFlagSecondary'] > 0)
     freq_invalid = (data['waveFrequencyFlagPrimary'] > 2) | (data['waveFrequencyFlagSecondary'] > 0)
 
@@ -155,7 +155,8 @@ def get_cdip_wave_records(filepath):
     pbar_kwargs = dict(
         total=len(z), unit_scale=True, position=(relative_pid() - 1),
         dynamic_ncols=True, desc=os.path.basename(filepath),
-        mininterval=0.25, maxinterval=1
+        mininterval=0.25, maxinterval=1, smoothing=0.1,
+        postfix=dict(waves_processed=0)
     )
 
     with tqdm.tqdm(**pbar_kwargs) as pbar:
@@ -262,10 +263,11 @@ def get_cdip_wave_records(filepath):
             for var in this_wave_records.keys():
                 wave_records[var].append(this_wave_records[var])
 
-            if local_wave_id % 1000 == 0:
-                pbar.set_postfix(dict(wave_id=str(local_wave_id)))
-
             local_wave_id += 1
+
+            if local_wave_id % 1000 == 0:
+                # prevent too frequent progress updates
+                pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
         pbar.update(len(z) - wave_stop)
 
