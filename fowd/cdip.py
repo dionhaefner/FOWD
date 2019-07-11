@@ -154,6 +154,7 @@ def get_cdip_wave_records(filepath):
     pbar_kwargs = dict(
         total=len(z), unit_scale=True, position=(relative_pid() - 1),
         dynamic_ncols=True, desc=os.path.basename(filepath),
+        mininterval=0.25, maxinterval=1
     )
 
     with tqdm.tqdm(**pbar_kwargs) as pbar:
@@ -258,10 +259,10 @@ def get_cdip_wave_records(filepath):
             for var in this_wave_records.keys():
                 wave_records[var].append(this_wave_records[var])
 
-            local_wave_id += 1
-
-            if local_wave_id % 100 == 0:
+            if local_wave_id % 1000 == 0:
                 pbar.set_postfix(dict(wave_id=str(local_wave_id)))
+
+            local_wave_id += 1
 
     return wave_records, num_flags_fired
 
