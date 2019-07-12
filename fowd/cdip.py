@@ -8,7 +8,6 @@ import os
 import sys
 import glob
 import pickle
-import signal
 import logging
 import functools
 import contextlib
@@ -308,7 +307,7 @@ def get_cdip_wave_records(filepath, out_folder):
             local_wave_id += 1
 
             # handle output
-            if local_wave_id % 1000 == 0:
+            if local_wave_id % 10000 == 0:
                 # convert records to NumPy array
                 wave_records_np = {}
                 for key, val in wave_records.items():
@@ -411,10 +410,8 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
                 except Exception:
                     # abort workers immediately if anything goes wrong
-                    for future in future_to_idx:
-                        future.cancel()
-                    for pid in executor._processes:
-                        os.kill(pid, signal.SIGINT)
+                    for process in executor._processes.values():
+                        process.terminate()
                     raise
             else:
                 # sequential shortcut

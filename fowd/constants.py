@@ -5,7 +5,7 @@ SSH_REFERENCE_INTERVAL = 30
 WAVE_HISTORY_LENGTH = 30
 
 # fixed length of raw elevation records
-RAW_ELEVATION_SIZE = 32
+RAW_ELEVATION_SIZE = 64
 
 # time series window size for spectrum calculation (in seconds)
 SPECTRUM_WINDOW_SIZE = 90
