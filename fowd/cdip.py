@@ -7,7 +7,10 @@ Process CDIP input files into FOWD datasets.
 import os
 import sys
 import glob
+import pickle
 import logging
+import tempfile
+import functools
 import contextlib
 import collections
 import multiprocessing
@@ -114,7 +117,11 @@ def relative_pid():
         return 1
 
 
-def get_cdip_wave_records(filepath):
+def get_cdip_wave_records(filepath, out_folder):
+    outfile = tempfile.NamedTemporaryFile(delete=False, dir=out_folder, suffix='.incomplete.npy')
+    outfile.close()
+    outfile = outfile.name
+
     # parse file into xarray Dataset
     data = get_cdip_data(filepath)
 
@@ -276,14 +283,14 @@ def get_cdip_wave_records(filepath):
 
         pbar.update(len(z) - wave_stop)
 
-    # convert record lists to NumPy arrays
+    # convert records to NumPy array
     for key, val in wave_records.items():
-        kwargs = {}
-        if np.issubdtype(np.array([val[0]]).dtype, np.floating):
-            kwargs['dtype'] = 'float32'
-        wave_records[key] = np.array(val, **kwargs)
+        wave_records[key] = np.asarray(val)
 
-    return wave_records, num_flags_fired
+    with open(outfile, 'wb') as f:
+        pickle.dump(wave_records, f)
+
+    return outfile, num_flags_fired
 
 
 def process_cdip_station(station_folder, out_folder, nproc=None):
@@ -307,6 +314,8 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     wave_records = [[] for _ in range(num_inputs)]
 
+    worker = functools.partial(get_cdip_wave_records, out_folder=out_folder)
+
     try:
         with contextlib.ExitStack() as es:
             pbar = es.enter_context(
@@ -321,7 +330,15 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                 nonlocal num_done
                 num_done += 1
 
-                wave_records[i], qc_flags_fired = result
+                result_file, qc_flags_fired = result
+
+                with open(result_file, 'rb') as f:
+                    wave_records[i] = pickle.load(f)
+
+                try:
+                    os.remove(result_file)
+                except OSError:
+                    pass
 
                 filename = station_files[i]
                 logger.info(
@@ -339,16 +356,24 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                 executor = es.enter_context(
                     concurrent.futures.ProcessPoolExecutor(nproc)
                 )
-                future_to_idx = {
-                    executor.submit(get_cdip_wave_records, station_file): i
-                    for i, station_file in enumerate(station_files)
-                }
 
-                for future in concurrent.futures.as_completed(future_to_idx):
-                    handle_result(future_to_idx[future], future.result())
+                try:
+                    future_to_idx = {
+                        executor.submit(worker, station_file): i
+                        for i, station_file in enumerate(station_files)
+                    }
+
+                    for future in concurrent.futures.as_completed(future_to_idx):
+                        handle_result(future_to_idx[future], future.result())
+
+                except Exception:
+                    # kill workers immediately if anything goes wrong
+                    for p in executor._processes.values():
+                        p.terminate()
+                    raise
             else:
                 # sequential shortcut
-                for i, result in enumerate(map(get_cdip_wave_records, station_files)):
+                for i, result in enumerate(map(worker, station_files)):
                     handle_result(i, result)
 
     finally:
