@@ -411,7 +411,9 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
                 except Exception:
                     # abort workers immediately if anything goes wrong
-                    for pid in executor._processes.keys():
+                    for future in future_to_idx:
+                        future.cancel()
+                    for pid in executor._processes:
                         os.kill(pid, signal.SIGINT)
                     raise
             else:
