@@ -20,7 +20,9 @@ setup(
     # module
     packages=find_packages(exclude=['docs', 'tests']),
     python_requires='>=3.6',
-    use_scm_version=True,
+    use_scm_version={
+        'write_to': 'fowd/_version.py'
+    },
     # dependencies
     setup_requires=[
         'setuptools_scm',
