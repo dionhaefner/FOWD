@@ -1,3 +1,9 @@
+"""
+constants.py
+
+Constants relevant for processing
+"""
+
 # length of SSH window to subtract before finding waves (in  minutes)
 SSH_REFERENCE_INTERVAL = 30
 

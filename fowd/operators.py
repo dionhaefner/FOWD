@@ -1,3 +1,9 @@
+"""
+operators.py
+
+Operators for all physical quantities and metadata
+"""
+
 import math
 import hashlib
 import os

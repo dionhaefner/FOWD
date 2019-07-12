@@ -1,3 +1,9 @@
+"""
+logs.py
+
+Logging utilities
+"""
+
 import logging
 
 

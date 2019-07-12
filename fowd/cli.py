@@ -25,11 +25,17 @@ def cli(ctx):
 
 @cli.command('from-cdip')
 @click.argument('CDIP_FOLDER')
-@click.option('-o', '--out-folder', type=click.Path(file_okay=False, exists=True), required=True)
+@click.option(
+    '-o', '--out-folder',
+    type=click.Path(file_okay=False, writable=True, exists=False),
+    required=True
+)
 @click.option('-n', '--nproc', default=None, type=int)
 def from_cdip(cdip_folder, out_folder, nproc):
     from .cdip import process_cdip_station
     from .logs import setup_file_logger
+
+    os.makedirs(out_folder, exist_ok=True)
 
     logfile = os.path.join(
         out_folder,

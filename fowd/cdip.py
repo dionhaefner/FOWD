@@ -1,7 +1,7 @@
 """
 cdip.py
 
-Process CDIP input files into FOWD datasets.
+CDIP input file processing into FOWD datasets
 """
 
 import os
@@ -10,7 +10,6 @@ import glob
 import pickle
 import logging
 import functools
-import contextlib
 import collections
 import multiprocessing
 import concurrent.futures
@@ -24,8 +23,9 @@ from .constants import (
 )
 
 from .operators import (
-    find_wave_indices, add_prefix, get_time_index, get_md5_hash, get_station_meta,
-    get_wave_parameters, get_sea_parameters, get_directional_parameters, check_quality_flags,
+    find_wave_indices, add_prefix, get_time_index, get_md5_hash, get_proc_version,
+    get_station_meta, get_wave_parameters, get_sea_parameters, get_directional_parameters,
+    check_quality_flags,
 )
 
 from .output import write_records
@@ -51,6 +51,8 @@ WAVE_PARAMS_KEYS = [key for key, _ in WAVE_PARAMS_DTYPE]
 # dataset-specific helpers
 
 def mask_invalid(data):
+    """Mask all data that has error flags set"""
+
     xyz_invalid = (data['xyzFlagPrimary'] > 2) | (data['xyzFlagSecondary'] > 0)
     data['xyzZDisplacement'][xyz_invalid] = np.nan
 
@@ -66,7 +68,23 @@ def mask_invalid(data):
     return data
 
 
+def add_surface_elevation(data):
+    """Add surface elevation variable to CDIP xarray Dataset"""
+
+    dt = float(1 / data.xyzSampleRate.values)
+    window_size = int(60 * SSH_REFERENCE_INTERVAL / dt)
+
+    data['meanDisplacement'] = (
+        data['xyzZDisplacement'].rolling({'xyzTime': window_size}, min_periods=60).mean()
+    )
+
+    data['xyzSurfaceElevation'] = data['xyzZDisplacement'] - data['meanDisplacement']
+    return data
+
+
 def get_cdip_data(filepath):
+    """Read CDIP input file as xarray Dataset"""
+
     allowed_vars = [
         'xyzStartTime', 'xyzZDisplacement', 'xyzSampleRate',
         'xyzFlagPrimary', 'xyzFlagSecondary',
@@ -95,22 +113,10 @@ def get_cdip_data(filepath):
     return data
 
 
-def add_surface_elevation(data):
-    dt = float(1 / data.xyzSampleRate.values)
-    window_size = int(60 * SSH_REFERENCE_INTERVAL / dt)
-
-    data['meanDisplacement'] = (
-        data['xyzZDisplacement'].rolling({'xyzTime': window_size}, min_periods=60).mean()
-    )
-
-    data['xyzSurfaceElevation'] = data['xyzZDisplacement'] - data['meanDisplacement']
-    return data
-
-
 # utilities
 
 def relative_pid():
-    # get relative PID of a pool process
+    """Get relative PID of a pool process"""
     try:
         return multiprocessing.current_process()._identity[0]
     except IndexError:
@@ -119,6 +125,7 @@ def relative_pid():
 
 
 def read_pickled_records(input_file):
+    """Read a sequence of pickled objects in the same file"""
     with open(input_file, 'rb') as f:
         unpickler = pickle.Unpickler(f)
         while True:
@@ -128,7 +135,8 @@ def read_pickled_records(input_file):
                 break
 
 
-def initialize_processing(record_file, state_file):
+def initialize_processing(record_file, state_file, input_hash):
+    """Parse temporary files to re-start processing if possible"""
     default_params = dict(
         last_wave_id=None,
         last_wave_end_time=None,
@@ -142,6 +150,13 @@ def initialize_processing(record_file, state_file):
     try:
         with open(state_file, 'rb') as f:
             saved_state = pickle.load(f)
+
+        if saved_state['input_hash'] != input_hash:
+            raise RuntimeError('Input hash has changed')
+
+        if saved_state['processing_version'] != get_proc_version():
+            raise RuntimeError('Processing version has changed')
+
         for row in read_pickled_records(record_file):
             last_wave_record = row
 
@@ -150,9 +165,10 @@ def initialize_processing(record_file, state_file):
         last_wave_end_time = last_wave_record['wave_end_time'].max()
         last_wave_id = last_wave_record['wave_id_local'].max()
 
-    except Exception:
+    except Exception as exc:
         logger.warn(
-            f'Error reading pickle files ({record_file}, {state_file}) - starting from scratch'
+            f'Error while restarting processing from pickle files ({record_file}, {state_file}): '
+            f'{exc!r} - starting from scratch'
         )
 
         if os.path.isfile(record_file):
@@ -174,6 +190,7 @@ def initialize_processing(record_file, state_file):
 #
 
 def get_cdip_wave_records(filepath, out_folder):
+    """Process a single file and write results to pickle file"""
     filename = os.path.basename(filepath)
 
     # parse file into xarray Dataset
@@ -204,13 +221,13 @@ def get_cdip_wave_records(filepath, out_folder):
     )
     input_hash = get_md5_hash(filepath)
 
-    del data
+    del data  # reduce memory pressure
 
     # initialize processing state
     outfile = os.path.join(out_folder, f'{filename}.waves.pkl')
     statefile = os.path.join(out_folder, f'{filename}.state.pkl')
 
-    initial_state = initialize_processing(outfile, statefile)
+    initial_state = initialize_processing(outfile, statefile, input_hash)
 
     if initial_state['last_wave_id'] is not None:
         local_wave_id = initial_state['last_wave_id'] + 1
@@ -254,6 +271,8 @@ def get_cdip_wave_records(filepath, out_folder):
                 pickle.dump({
                     'wave_params_history': wave_params_history,
                     'num_flags_fired': num_flags_fired,
+                    'input_hash': input_hash,
+                    'processing_version': get_proc_version(),
                 }, f)
 
         for wave_start, wave_stop in find_wave_indices(z_normalized, start_idx=start_idx):
@@ -381,6 +400,10 @@ def get_cdip_wave_records(filepath, out_folder):
 
 
 def process_cdip_station(station_folder, out_folder, nproc=None):
+    """Process all deployments of a single CDIP station
+
+    Supports processing in parallel (one process per input file).
+    """
     station_folder = os.path.normpath(station_folder)
     assert os.path.isdir(station_folder)
 
@@ -403,15 +426,14 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     worker = functools.partial(get_cdip_wave_records, out_folder=out_folder)
 
+    pbar_kwargs = dict(
+        total=num_inputs, position=nproc, unit='file',
+        desc='Processing files', dynamic_ncols=True,
+        smoothing=0
+    )
+
     try:
-        with contextlib.ExitStack() as es:
-            pbar = es.enter_context(
-                tqdm.tqdm(
-                    total=num_inputs, position=nproc, unit='file',
-                    desc='Processing files', dynamic_ncols=True,
-                    smoothing=0
-                )
-            )
+        with tqdm.tqdm(**pbar_kwargs) as pbar:
 
             def handle_result(i, result):
                 nonlocal num_done
@@ -444,24 +466,21 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
             if nproc > 1:
                 # process deployments in parallel
-                executor = es.enter_context(
-                    concurrent.futures.ProcessPoolExecutor(nproc)
-                )
+                with concurrent.futures.ProcessPoolExecutor(nproc) as executor:
+                    try:
+                        future_to_idx = {
+                            executor.submit(worker, station_file): i
+                            for i, station_file in enumerate(station_files)
+                        }
 
-                try:
-                    future_to_idx = {
-                        executor.submit(worker, station_file): i
-                        for i, station_file in enumerate(station_files)
-                    }
+                        for future in concurrent.futures.as_completed(future_to_idx):
+                            handle_result(future_to_idx[future], future.result())
 
-                    for future in concurrent.futures.as_completed(future_to_idx):
-                        handle_result(future_to_idx[future], future.result())
-
-                except Exception:
-                    # abort workers immediately if anything goes wrong
-                    for process in executor._processes.values():
-                        process.terminate()
-                    raise
+                    except Exception:
+                        # abort workers immediately if anything goes wrong
+                        for process in executor._processes.values():
+                            process.terminate()
+                        raise
             else:
                 # sequential shortcut
                 for i, result in enumerate(map(worker, station_files)):
@@ -470,6 +489,8 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     finally:
         # reset cursor position
         sys.stderr.write('\n' * (nproc + 2))
+
+    logger.info('Processing done')
 
     # concatenate subrecords
     wave_records = {
@@ -482,4 +503,5 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     # write output
     out_file = os.path.join(out_folder, f'fowd_cdip_{station_id}.nc')
+    logger.info('Writing output to %s', out_file)
     write_records(wave_records, out_file, station_id)
