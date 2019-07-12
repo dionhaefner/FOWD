@@ -24,8 +24,8 @@ from .constants import (
 )
 
 from .operators import (
-    find_wave_indices, add_prefix, get_time_index, get_station_meta, get_wave_parameters,
-    get_sea_parameters, get_directional_parameters, check_quality_flags,
+    find_wave_indices, add_prefix, get_time_index, get_md5_hash, get_station_meta,
+    get_wave_parameters, get_sea_parameters, get_directional_parameters, check_quality_flags,
 )
 
 from .output import write_records
@@ -106,8 +106,8 @@ def add_surface_elevation(data):
     data['xyzSurfaceElevation'] = data['xyzZDisplacement'] - data['meanDisplacement']
     return data
 
-# utilities
 
+# utilities
 
 def relative_pid():
     # get relative PID of a pool process
@@ -127,8 +127,51 @@ def read_pickled_records(input_file):
             except EOFError:
                 break
 
-#
 
+def initialize_processing(record_file, state_file):
+    default_params = dict(
+        last_wave_id=None,
+        last_wave_end_time=None,
+        wave_params_history=np.array([], dtype=WAVE_PARAMS_DTYPE),
+        num_flags_fired={k: 0 for k in 'abcdefg'},
+    )
+
+    if not os.path.isfile(record_file) and not os.path.isfile(state_file):
+        return default_params
+
+    try:
+        with open(state_file, 'rb') as f:
+            saved_state = pickle.load(f)
+        for row in read_pickled_records(record_file):
+            last_wave_record = row
+
+        wave_params_history = saved_state['wave_params_history']
+        num_flags_fired = saved_state['num_flags_fired']
+        last_wave_end_time = last_wave_record['wave_end_time'].max()
+        last_wave_id = last_wave_record['wave_id_local'].max()
+
+    except Exception:
+        logger.warn(
+            f'Error reading pickle files ({record_file}, {state_file}) - starting from scratch'
+        )
+
+        if os.path.isfile(record_file):
+            os.remove(record_file)
+
+        if os.path.isfile(state_file):
+            os.remove(state_file)
+
+        return default_params
+
+    return dict(
+        last_wave_id=last_wave_id,
+        last_wave_end_time=last_wave_end_time,
+        wave_params_history=wave_params_history,
+        num_flags_fired=num_flags_fired
+    )
+
+
+#
 
 def get_cdip_wave_records(filepath, out_folder):
     filename = os.path.basename(filepath)
@@ -159,39 +202,35 @@ def get_cdip_wave_records(filepath, out_folder):
         data.metaWaterDepth,
         data.xyzSampleRate
     )
+    input_hash = get_md5_hash(filepath)
 
     del data
 
-    # check for previous run
+    # initialize processing state
     outfile = os.path.join(out_folder, f'{filename}.waves.pkl')
     statefile = os.path.join(out_folder, f'{filename}.state.pkl')
 
-    if os.path.isfile(outfile) and os.path.isfile(statefile):
-        try:
-            with open(statefile, 'rb') as f:
-                saved_state = pickle.load(f)
-            for row in read_pickled_records(outfile):
-                last_wave_record = row
-        except EOFError:
-            raise IOError(f'Error while reading pickle files for input {filename}')
+    initial_state = initialize_processing(outfile, statefile)
 
-        wave_params_history = saved_state['wave_params_history']
-        num_flags_fired = saved_state['num_flags_fired']
-        start_idx = max(get_time_index(last_wave_record['wave_end_time'].max(), t) - 1, 0)
-        local_wave_id = last_wave_record['wave_id_local'].max() + 1
+    if initial_state['last_wave_id'] is not None:
+        local_wave_id = initial_state['last_wave_id'] + 1
     else:
-        start_idx = local_wave_id = 0
-        wave_params_history = np.array([], dtype=WAVE_PARAMS_DTYPE)
-        num_flags_fired = {k: 0 for k in 'abcdefg'}
+        local_wave_id = 0
 
-    last_wave_stop = start_idx
+    if initial_state['last_wave_end_time'] is not None:
+        start_idx = max(get_time_index(initial_state['last_wave_end_time'], t) - 1, 0)
+    else:
+        start_idx = 0
 
-    # run processing
+    wave_params_history = initial_state['wave_params_history']
+    num_flags_fired = initial_state['num_flags_fired']
+
     history_length = np.timedelta64(WAVE_HISTORY_LENGTH, 'm')
+    last_wave_stop = start_idx
     last_directional_time_idx = None
-
     wave_records = collections.defaultdict(list)
 
+    # run processing
     pbar_kwargs = dict(
         total=len(z), unit_scale=True, position=(relative_pid() - 1),
         dynamic_ncols=True, desc=filename,
@@ -199,17 +238,18 @@ def get_cdip_wave_records(filepath, out_folder):
         postfix=dict(waves_processed=str(local_wave_id)), initial=start_idx
     )
 
-    with tqdm.tqdm(**pbar_kwargs) as pbar, open(outfile, 'ab+') as f:
-        pickler = pickle.Pickler(f)
+    with tqdm.tqdm(**pbar_kwargs) as pbar:
 
-        def handle_output():
+        def handle_output(wave_records, wave_params_history, num_flags_fired):
             # convert records to NumPy array
             wave_records_np = {}
             for key, val in wave_records.items():
                 wave_records_np[key] = np.asarray(val)
 
             # dump results to files
-            pickler.dump(wave_records_np)
+            with open(outfile, 'ab') as f:
+                pickle.dump(wave_records_np, f)
+
             with open(statefile, 'wb') as f:
                 pickle.dump({
                     'wave_params_history': wave_params_history,
@@ -225,7 +265,8 @@ def get_cdip_wave_records(filepath, out_folder):
             # compute wave parameters
             xyz_idx = slice(wave_start, wave_stop + 1)
             wave_params = get_wave_parameters(
-                local_wave_id, t[xyz_idx], z_normalized[xyz_idx], water_depth, filepath)
+                local_wave_id, t[xyz_idx], z_normalized[xyz_idx], water_depth, input_hash
+            )
             this_wave_records.update(
                 add_prefix(wave_params, 'wave')
             )
@@ -323,8 +364,8 @@ def get_cdip_wave_records(filepath, out_folder):
             local_wave_id += 1
 
             if local_wave_id % 1000 == 0:
-                handle_output()
-                wave_records = collections.defaultdict(list)
+                handle_output(wave_records, wave_params_history, num_flags_fired)
+                wave_records.clear()
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
         else:
@@ -332,7 +373,7 @@ def get_cdip_wave_records(filepath, out_folder):
             pbar.update(len(z) - wave_stop)
 
         if wave_records:
-            handle_output()
+            handle_output(wave_records, wave_params_history, num_flags_fired)
 
         pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 

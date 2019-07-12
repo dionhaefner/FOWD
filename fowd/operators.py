@@ -1,5 +1,4 @@
 import math
-import functools
 import hashlib
 import os
 
@@ -17,18 +16,6 @@ from .constants import (
 
 
 # helper functions
-
-def memoize(func):
-    cache = {}
-
-    @functools.wraps(func)
-    def memoized(*args):
-        if args not in cache:
-            cache[args] = func(*args)
-        return cache[args]
-
-    return memoized
-
 
 def get_time_index(target_time, time_records, nearest=False):
     record_length = len(time_records)
@@ -67,7 +54,6 @@ def add_prefix(dic, prefix):
 
 # metadata
 
-@memoize
 def get_md5_hash(filepath, blocksize=1024 * 1024):
     m5 = hashlib.md5()
     with open(filepath, 'rb') as f:
@@ -78,9 +64,7 @@ def get_md5_hash(filepath, blocksize=1024 * 1024):
     return m5.hexdigest()
 
 
-def create_wave_id(start_time, end_time, filename, proc_version):
-    input_hash = get_md5_hash(filename)
-
+def create_wave_id(start_time, end_time, input_hash, proc_version):
     m5 = hashlib.md5()
     for v in (start_time, end_time, input_hash, proc_version):
         if isinstance(v, str):
@@ -419,12 +403,12 @@ def get_station_meta(filepath, uuid, lat, lon, depth, rate):
     }
 
 
-def get_wave_parameters(local_id, t, z, water_depth, filepath):
+def get_wave_parameters(local_id, t, z, water_depth, input_hash):
     if not len(t) == len(z):
         raise ValueError('t and z must have equal lengths')
 
     proc_version = get_proc_version()
-    global_id = create_wave_id(t[0], t[-1], filepath, proc_version)
+    global_id = create_wave_id(t[0], t[-1], input_hash, proc_version)
 
     wave_period = compute_period(t, z)
     wavelength = compute_zero_crossing_wavelength(wave_period, water_depth)
