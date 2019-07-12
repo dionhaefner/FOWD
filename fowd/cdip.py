@@ -8,8 +8,8 @@ import os
 import sys
 import glob
 import pickle
+import signal
 import logging
-import tempfile
 import functools
 import contextlib
 import collections
@@ -49,7 +49,7 @@ WAVE_PARAMS_DTYPE = [
 WAVE_PARAMS_KEYS = [key for key, _ in WAVE_PARAMS_DTYPE]
 
 
-#
+# dataset-specific helpers
 
 def mask_invalid(data):
     xyz_invalid = (data['xyzFlagPrimary'] > 2) | (data['xyzFlagSecondary'] > 0)
@@ -107,6 +107,8 @@ def add_surface_elevation(data):
     data['xyzSurfaceElevation'] = data['xyzZDisplacement'] - data['meanDisplacement']
     return data
 
+# utilities
+
 
 def relative_pid():
     # get relative PID of a pool process
@@ -117,25 +119,23 @@ def relative_pid():
         return 1
 
 
+def read_pickled_records(input_file):
+    with open(input_file, 'rb') as f:
+        unpickler = pickle.Unpickler(f)
+        while True:
+            try:
+                yield unpickler.load()
+            except EOFError:
+                break
+
+#
+
+
 def get_cdip_wave_records(filepath, out_folder):
-    outfile = tempfile.NamedTemporaryFile(delete=False, dir=out_folder, suffix='.incomplete.npy')
-    outfile.close()
-    outfile = outfile.name
+    filename = os.path.basename(filepath)
 
     # parse file into xarray Dataset
     data = get_cdip_data(filepath)
-
-    # initialize counters and containers
-    wave_records = collections.defaultdict(list)
-    wave_params_history = np.array([], dtype=WAVE_PARAMS_DTYPE)
-    history_length = np.timedelta64(WAVE_HISTORY_LENGTH, 'm')
-
-    num_flags_fired = {k: 0 for k in 'abcdefg'}
-
-    last_wave_stop = 0
-    last_directional_time_idx = None
-
-    local_wave_id = 0
 
     # extract relevant quantities from xarray dataset
     t = np.ascontiguousarray(data['xyzTime'].values)
@@ -163,16 +163,45 @@ def get_cdip_wave_records(filepath, out_folder):
 
     del data
 
+    # check for previous run
+    outfile = os.path.join(out_folder, f'{filename}.waves.pkl')
+    statefile = os.path.join(out_folder, f'{filename}.state.pkl')
+
+    if os.path.isfile(outfile) and os.path.isfile(statefile):
+        with open(statefile, 'rb') as f:
+            saved_state = pickle.load(f)
+            wave_params_history = saved_state['wave_params_history']
+            num_flags_fired = saved_state['num_flags_fired']
+
+        for row in read_pickled_records(outfile):
+            last_wave_record = row
+
+        start_idx = max(get_time_index(last_wave_record['wave_end_time'].max(), t) - 1, 0)
+        local_wave_id = last_wave_record['wave_id_local'].max() + 1
+    else:
+        start_idx = local_wave_id = 0
+        wave_params_history = np.array([], dtype=WAVE_PARAMS_DTYPE)
+        num_flags_fired = {k: 0 for k in 'abcdefg'}
+
+    last_wave_stop = start_idx
+
     # run processing
+    history_length = np.timedelta64(WAVE_HISTORY_LENGTH, 'm')
+    last_directional_time_idx = None
+
+    wave_records = collections.defaultdict(list)
+
     pbar_kwargs = dict(
         total=len(z), unit_scale=True, position=(relative_pid() - 1),
-        dynamic_ncols=True, desc=os.path.basename(filepath),
+        dynamic_ncols=True, desc=filename,
         mininterval=0.25, maxinterval=1, smoothing=0.1,
-        postfix=dict(waves_processed=0)
+        postfix=dict(waves_processed=str(local_wave_id)), initial=start_idx
     )
 
-    with tqdm.tqdm(**pbar_kwargs) as pbar:
-        for wave_start, wave_stop in find_wave_indices(z_normalized):
+    with tqdm.tqdm(**pbar_kwargs) as pbar, open(outfile, 'ab+') as f:
+        pickler = pickle.Pickler(f)
+
+        for wave_start, wave_stop in find_wave_indices(z_normalized, start_idx=start_idx):
             this_wave_records = {}
 
             pbar.update(wave_stop - last_wave_stop)
@@ -218,6 +247,8 @@ def get_cdip_wave_records(filepath, out_folder):
             if flags_fired:
                 for flag in flags_fired:
                     num_flags_fired[flag] += 1
+
+                # skip further processing for this wave
                 continue
 
             # add metadata
@@ -271,26 +302,34 @@ def get_cdip_wave_records(filepath, out_folder):
                 add_prefix(directional_params, 'direction')
             )
 
-            # append to global record
             for var in this_wave_records.keys():
                 wave_records[var].append(this_wave_records[var])
 
             local_wave_id += 1
 
+            # handle output
             if local_wave_id % 1000 == 0:
-                # prevent too frequent progress updates
+                # convert records to NumPy array
+                wave_records_np = {}
+                for key, val in wave_records.items():
+                    wave_records_np[key] = np.asarray(val)
+
+                # dump results to files
+                pickler.dump(wave_records_np)
+                with open(statefile, 'wb') as f:
+                    pickle.dump({
+                        'wave_params_history': wave_params_history,
+                        'num_flags_fired': num_flags_fired,
+                    }, f)
+
+                # forget
+                wave_records = collections.defaultdict(list)
+
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
         pbar.update(len(z) - wave_stop)
 
-    # convert records to NumPy array
-    for key, val in wave_records.items():
-        wave_records[key] = np.asarray(val)
-
-    with open(outfile, 'wb') as f:
-        pickle.dump(wave_records, f)
-
-    return outfile, num_flags_fired
+    return outfile, statefile
 
 
 def process_cdip_station(station_folder, out_folder, nproc=None):
@@ -330,21 +369,25 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                 nonlocal num_done
                 num_done += 1
 
-                result_file, qc_flags_fired = result
+                result_file, state_file = result
+                result_records = list(read_pickled_records(result_file))
 
-                with open(result_file, 'rb') as f:
-                    wave_records[i] = pickle.load(f)
+                # concatenate subrecords
+                wave_records[i] = {
+                    key: np.concatenate([subrecord[key] for subrecord in result_records])
+                    for key in result_records[0].keys()
+                }
 
-                try:
-                    os.remove(result_file)
-                except OSError:
-                    pass
+                # get QC information
+                with open(state_file, 'rb') as f:
+                    qc_flags_fired = pickle.load(f)['num_flags_fired']
 
+                # log progress
                 filename = station_files[i]
                 logger.info(
                     'Processing finished for file %s (%s/%s done)', filename, num_done, num_inputs
                 )
-                logger.info('  Found %s waves', len(wave_records[i]["wave_id_local"]))
+                logger.info('  Found %s waves', len(wave_records[i]['wave_id_local']))
                 logger.info('  Number of QC flags fired:')
                 for key, val in qc_flags_fired.items():
                     logger.info(f'      {key} {val:>6d}')
@@ -367,9 +410,9 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                         handle_result(future_to_idx[future], future.result())
 
                 except Exception:
-                    # kill workers immediately if anything goes wrong
-                    for p in executor._processes.values():
-                        p.terminate()
+                    # abort workers immediately if anything goes wrong
+                    for pid in executor._processes.keys():
+                        os.kill(pid, signal.SIGINT)
                     raise
             else:
                 # sequential shortcut

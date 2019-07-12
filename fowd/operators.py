@@ -43,11 +43,12 @@ def get_time_index(target_time, time_records, nearest=False):
     return min(pos, record_length - 1)
 
 
-def find_wave_indices(z):
+def find_wave_indices(z, start_idx=0):
+    assert start_idx < len(z) - 1
     active = False
-    wave_start = 0
+    wave_start = start_idx
 
-    for i in range(len(z) - 1):
+    for i in range(wave_start, len(z) - 1):
         if math.isnan(z[i]):
             # discard wave if it contains invalid values
             active = False
