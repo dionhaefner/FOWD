@@ -167,14 +167,16 @@ def get_cdip_wave_records(filepath, out_folder):
     statefile = os.path.join(out_folder, f'{filename}.state.pkl')
 
     if os.path.isfile(outfile) and os.path.isfile(statefile):
-        with open(statefile, 'rb') as f:
-            saved_state = pickle.load(f)
-            wave_params_history = saved_state['wave_params_history']
-            num_flags_fired = saved_state['num_flags_fired']
+        try:
+            with open(statefile, 'rb') as f:
+                saved_state = pickle.load(f)
+            for row in read_pickled_records(outfile):
+                last_wave_record = row
+        except EOFError:
+            raise IOError(f'Error while reading pickle files for input {filename}')
 
-        for row in read_pickled_records(outfile):
-            last_wave_record = row
-
+        wave_params_history = saved_state['wave_params_history']
+        num_flags_fired = saved_state['num_flags_fired']
         start_idx = max(get_time_index(last_wave_record['wave_end_time'].max(), t) - 1, 0)
         local_wave_id = last_wave_record['wave_id_local'].max() + 1
     else:
@@ -199,6 +201,20 @@ def get_cdip_wave_records(filepath, out_folder):
 
     with tqdm.tqdm(**pbar_kwargs) as pbar, open(outfile, 'ab+') as f:
         pickler = pickle.Pickler(f)
+
+        def handle_output():
+            # convert records to NumPy array
+            wave_records_np = {}
+            for key, val in wave_records.items():
+                wave_records_np[key] = np.asarray(val)
+
+            # dump results to files
+            pickler.dump(wave_records_np)
+            with open(statefile, 'wb') as f:
+                pickle.dump({
+                    'wave_params_history': wave_params_history,
+                    'num_flags_fired': num_flags_fired,
+                }, f)
 
         for wave_start, wave_stop in find_wave_indices(z_normalized, start_idx=start_idx):
             this_wave_records = {}
@@ -306,27 +322,19 @@ def get_cdip_wave_records(filepath, out_folder):
 
             local_wave_id += 1
 
-            # handle output
-            if local_wave_id % 10000 == 0:
-                # convert records to NumPy array
-                wave_records_np = {}
-                for key, val in wave_records.items():
-                    wave_records_np[key] = np.asarray(val)
-
-                # dump results to files
-                pickler.dump(wave_records_np)
-                with open(statefile, 'wb') as f:
-                    pickle.dump({
-                        'wave_params_history': wave_params_history,
-                        'num_flags_fired': num_flags_fired,
-                    }, f)
-
-                # forget
+            if local_wave_id % 1000 == 0:
+                handle_output()
                 wave_records = collections.defaultdict(list)
-
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
-        pbar.update(len(z) - wave_stop)
+        else:
+            # all waves processed
+            pbar.update(len(z) - wave_stop)
+
+        if wave_records:
+            handle_output()
+
+        pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
     return outfile, statefile
 
