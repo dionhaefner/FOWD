@@ -391,9 +391,6 @@ def get_cdip_wave_records(filepath, out_folder):
                 wave_records.clear()
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
-            if local_wave_id > 100000:
-                break
-
         else:
             # all waves processed
             pbar.update(len(z) - wave_stop)
