@@ -261,7 +261,11 @@ def get_cdip_wave_records(filepath, out_folder):
             # convert records to NumPy array
             wave_records_np = {}
             for key, val in wave_records.items():
-                wave_records_np[key] = np.asarray(val)
+                if key == 'wave_raw_elevation':
+                    wave_records_np[key] = np.empty(len(val), dtype=object)
+                    wave_records_np[key][...] = val
+                else:
+                    wave_records_np[key] = np.asarray(val)
 
             # dump results to files
             with open(outfile, 'ab') as f:
@@ -387,6 +391,9 @@ def get_cdip_wave_records(filepath, out_folder):
                 wave_records.clear()
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
+            if local_wave_id > 100000:
+                break
+
         else:
             # all waves processed
             pbar.update(len(z) - wave_stop)
@@ -412,7 +419,6 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     station_files = sorted(glob.glob(glob_pattern))
 
     num_inputs = len(station_files)
-    num_done = 0
 
     if num_inputs == 0:
         raise RuntimeError('Given input folder does not contain any valid station files')
@@ -422,9 +428,36 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     nproc = min(nproc, num_inputs)
 
-    wave_records = [[] for _ in range(num_inputs)]
+    wave_records = [None for _ in range(num_inputs)]
 
     worker = functools.partial(get_cdip_wave_records, out_folder=out_folder)
+
+    def handle_result(i, result, pbar):
+        result_file, state_file = result
+        result_records = list(read_pickled_records(result_file))
+
+        # concatenate subrecords
+        wave_records[i] = {
+            key: np.concatenate([subrecord[key] for subrecord in result_records])
+            for key in result_records[0].keys()
+        }
+
+        # get QC information
+        with open(state_file, 'rb') as f:
+            qc_flags_fired = pickle.load(f)['num_flags_fired']
+
+        # log progress
+        num_done = sum(record is not None for record in wave_records)
+        filename = station_files[i]
+        logger.info(
+            'Processing finished for file %s (%s/%s done)', filename, num_done, num_inputs
+        )
+        logger.info('  Found %s waves', len(wave_records[i]['wave_id_local']))
+        logger.info('  Number of QC flags fired:')
+        for key, val in qc_flags_fired.items():
+            logger.info(f'      {key} {val:>6d}')
+
+        pbar.update(1)
 
     pbar_kwargs = dict(
         total=num_inputs, position=nproc, unit='file',
@@ -432,38 +465,10 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
         smoothing=0
     )
 
+    logger.info('Starting processing for station %s (%s input files)', station_id, num_inputs)
+
     try:
         with tqdm.tqdm(**pbar_kwargs) as pbar:
-
-            def handle_result(i, result):
-                nonlocal num_done
-                num_done += 1
-
-                result_file, state_file = result
-                result_records = list(read_pickled_records(result_file))
-
-                # concatenate subrecords
-                wave_records[i] = {
-                    key: np.concatenate([subrecord[key] for subrecord in result_records])
-                    for key in result_records[0].keys()
-                }
-
-                # get QC information
-                with open(state_file, 'rb') as f:
-                    qc_flags_fired = pickle.load(f)['num_flags_fired']
-
-                # log progress
-                filename = station_files[i]
-                logger.info(
-                    'Processing finished for file %s (%s/%s done)', filename, num_done, num_inputs
-                )
-                logger.info('  Found %s waves', len(wave_records[i]['wave_id_local']))
-                logger.info('  Number of QC flags fired:')
-                for key, val in qc_flags_fired.items():
-                    logger.info(f'      {key} {val:>6d}')
-
-                pbar.update(1)
-
             if nproc > 1:
                 # process deployments in parallel
                 with concurrent.futures.ProcessPoolExecutor(nproc) as executor:
@@ -474,7 +479,7 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
                         }
 
                         for future in concurrent.futures.as_completed(future_to_idx):
-                            handle_result(future_to_idx[future], future.result())
+                            handle_result(future_to_idx[future], future.result(), pbar)
 
                     except Exception:
                         # abort workers immediately if anything goes wrong
@@ -484,7 +489,7 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
             else:
                 # sequential shortcut
                 for i, result in enumerate(map(worker, station_files)):
-                    handle_result(i, result)
+                    handle_result(i, result, pbar)
 
     finally:
         # reset cursor position
@@ -504,4 +509,5 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     # write output
     out_file = os.path.join(out_folder, f'fowd_cdip_{station_id}.nc')
     logger.info('Writing output to %s', out_file)
-    write_records(wave_records, out_file, station_id)
+    station_name = f'CDIP_{station_id}'
+    write_records(wave_records, out_file, station_name)

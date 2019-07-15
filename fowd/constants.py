@@ -10,9 +10,6 @@ SSH_REFERENCE_INTERVAL = 30
 # length of wave history to keep in memory for QC and statistics (in minutes)
 WAVE_HISTORY_LENGTH = 30
 
-# fixed length of raw elevation records
-RAW_ELEVATION_SIZE = 64
-
 # time series window size for spectrum calculation (in seconds)
 SPECTRUM_WINDOW_SIZE = 90
 
@@ -38,7 +35,7 @@ DENSITY = 1024
 QC_FLAG_A_THRESHOLD = 25  # maximum allowed zero-crossing period (in seconds)
 QC_FLAG_B_THRESHOLD = 2  # maximum allowed multiple of limit rate of change
 QC_FLAG_C_THRESHOLD = 10  # maximum allowed number of consecutive identical values
-QC_FLAG_D_THRESHOLD = 8  # maximum allowed exceedance of surface elevation stdev
+QC_FLAG_D_THRESHOLD = 8  # maximum allowed exceedance of surface elevation MADN
 QC_FLAG_E_THRESHOLD = None  # not used
 QC_FLAG_F_THRESHOLD = 0.05  # maximum allowed ratio of invalid data
 QC_FLAG_G_THRESHOLD = 100  # minimum number of zero-crossing periods in wave history

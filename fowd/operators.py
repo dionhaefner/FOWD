@@ -14,7 +14,7 @@ import scipy.signal
 import scipy.integrate
 
 from .constants import (
-    GRAVITY, DENSITY, FREQUENCY_INTERVALS, RAW_ELEVATION_SIZE,
+    GRAVITY, DENSITY, FREQUENCY_INTERVALS,
     QC_FLAG_A_THRESHOLD, QC_FLAG_B_THRESHOLD, QC_FLAG_C_THRESHOLD,
     QC_FLAG_D_THRESHOLD, QC_FLAG_F_THRESHOLD, QC_FLAG_G_THRESHOLD,
     SPECTRUM_WINDOW_SIZE,
@@ -142,6 +142,15 @@ def compute_significant_wave_height(waveheights):
 
     largest_third = np.quantile(waveheights, 2./3.)
     return np.mean(waveheights[waveheights >= largest_third])
+
+
+def compute_maximum_wave_height(waveheights):
+    waveheights = waveheights[np.isfinite(waveheights)]
+
+    if len(waveheights) < 20:
+        return np.nan
+
+    return np.max(waveheights)
 
 
 def compute_mean_wave_period(wave_periods):
@@ -311,7 +320,7 @@ def compute_dominant_direction(frequencies, direction, energy_density):
 
 def check_flag_a(zero_crossing_periods, threshold=QC_FLAG_A_THRESHOLD):
     """Check for excessively long waves"""
-    return np.all(zero_crossing_periods > threshold)
+    return np.any(zero_crossing_periods > threshold)
 
 
 def check_flag_b(time, elevation, zero_crossing_periods, threshold=QC_FLAG_B_THRESHOLD):
@@ -344,12 +353,16 @@ def check_flag_c(elevation, threshold=QC_FLAG_C_THRESHOLD):
 
 def check_flag_d(elevation, wave_crests, wave_troughs, threshold=QC_FLAG_D_THRESHOLD):
     """Check for unrealistically extreme elevations"""
-    elevation_stdev = np.nanstd(elevation)
+    elevation_median = np.nanmedian(elevation)
+    elevation_mad = np.nanmedian(np.abs(elevation - elevation_median))
 
-    def exceeds(arr):
-        return np.abs(arr) > threshold * elevation_stdev
+    def is_outlier(val):
+        # scale MAD so it converges to standard deviation
+        # see Huber, Peter J. Robust statistics. Springer Berlin Heidelberg, 2011
+        magic_number = 1.483
+        return np.abs(val) > threshold * elevation_mad * magic_number
 
-    return np.any(exceeds(wave_crests)) or np.any(exceeds(wave_troughs))
+    return np.any(is_outlier(wave_crests)) or np.any(is_outlier(wave_troughs))
 
 
 def check_flag_e(times):
@@ -423,8 +436,7 @@ def get_wave_parameters(local_id, t, z, water_depth, input_hash):
     trough_depth = compute_trough_depth(z)
     wave_height = compute_wave_height(crest_height, trough_depth)
 
-    raw_elevation = np.full(RAW_ELEVATION_SIZE, np.nan)
-    raw_elevation[:len(z) - 2] = z[1:-1]
+    raw_elevation = z[1:-1].astype('float32')
 
     return {
         'start_time': t[0],
@@ -450,6 +462,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     ssh = compute_ssh(z_displacement)
     elevation = compute_elevation(z_displacement, ssh)
     significant_wave_height_direct = compute_significant_wave_height(wave_heights)
+    maximum_wave_height = compute_maximum_wave_height(wave_heights)
     mean_period_direct = compute_mean_wave_period(wave_periods)
     skewness = compute_skewness(elevation)
     excess_kurtosis = compute_excess_kurtosis(elevation)
@@ -502,6 +515,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'significant_wave_height_spectral': significant_wave_height_spectral,
         'mean_period_direct': mean_period_direct,
         'mean_period_spectral': mean_period_spectral,
+        'maximum_wave_height': maximum_wave_height,
         'skewness': skewness,
         'kurtosis': excess_kurtosis,
         'valid_data_ratio': valid_data_ratio,
