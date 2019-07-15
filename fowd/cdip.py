@@ -247,6 +247,28 @@ def get_cdip_wave_records(filepath, out_folder):
     last_directional_time_idx = None
     wave_records = collections.defaultdict(list)
 
+    def handle_output(wave_records, wave_params_history, num_flags_fired):
+        # convert records to NumPy array
+        wave_records_np = {}
+        for key, val in wave_records.items():
+            if key == 'wave_raw_elevation':
+                wave_records_np[key] = np.empty(len(val), dtype=object)
+                wave_records_np[key][...] = val
+            else:
+                wave_records_np[key] = np.asarray(val)
+
+        # dump results to files
+        with open(outfile, 'ab') as f:
+            pickle.dump(wave_records_np, f)
+
+        with open(statefile, 'wb') as f:
+            pickle.dump({
+                'wave_params_history': wave_params_history,
+                'num_flags_fired': num_flags_fired,
+                'input_hash': input_hash,
+                'processing_version': get_proc_version(),
+            }, f)
+
     # run processing
     pbar_kwargs = dict(
         total=len(z), unit_scale=True, position=(relative_pid() - 1),
@@ -256,29 +278,6 @@ def get_cdip_wave_records(filepath, out_folder):
     )
 
     with tqdm.tqdm(**pbar_kwargs) as pbar:
-
-        def handle_output(wave_records, wave_params_history, num_flags_fired):
-            # convert records to NumPy array
-            wave_records_np = {}
-            for key, val in wave_records.items():
-                if key == 'wave_raw_elevation':
-                    wave_records_np[key] = np.empty(len(val), dtype=object)
-                    wave_records_np[key][...] = val
-                else:
-                    wave_records_np[key] = np.asarray(val)
-
-            # dump results to files
-            with open(outfile, 'ab') as f:
-                pickle.dump(wave_records_np, f)
-
-            with open(statefile, 'wb') as f:
-                pickle.dump({
-                    'wave_params_history': wave_params_history,
-                    'num_flags_fired': num_flags_fired,
-                    'input_hash': input_hash,
-                    'processing_version': get_proc_version(),
-                }, f)
-
         for wave_start, wave_stop in find_wave_indices(z_normalized, start_idx=start_idx):
             this_wave_records = {}
 
@@ -393,7 +392,7 @@ def get_cdip_wave_records(filepath, out_folder):
 
         else:
             # all waves processed
-            pbar.update(len(z) - wave_stop)
+            pbar.update(len(z) - last_wave_stop)
 
         if wave_records:
             handle_output(wave_records, wave_params_history, num_flags_fired)
