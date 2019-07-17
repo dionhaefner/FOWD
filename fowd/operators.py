@@ -172,17 +172,17 @@ def compute_valid_data_ratio(elevation):
     return np.count_nonzero(np.isfinite(elevation)) / elevation.size
 
 
-def compute_spectral_density(elevation, sample_rate):
+def compute_spectral_density(elevation, sample_dt):
     elevation[np.isnan(elevation)] = 0.
-    return scipy.signal.periodogram(elevation, 1 / sample_rate, detrend=False)
+    return scipy.signal.periodogram(elevation, 1 / sample_dt, detrend=False)
 
 
-def compute_spectral_density_smooth(elevation, sample_rate):
+def compute_spectral_density_smooth(elevation, sample_dt):
     elevation[np.isnan(elevation)] = 0.
-    sample_rate = float(sample_rate)
-    nperseg = round(SPECTRUM_WINDOW_SIZE / sample_rate)
+    sample_dt = float(sample_dt)
+    nperseg = round(SPECTRUM_WINDOW_SIZE / sample_dt)
     nfft = 2 ** (math.ceil(math.log(nperseg, 2)))  # round to nearest power of 2
-    return scipy.signal.welch(elevation, 1 / sample_rate, nperseg=nperseg, nfft=nfft, detrend=False)
+    return scipy.signal.welch(elevation, 1 / sample_dt, nperseg=nperseg, nfft=nfft, detrend=False)
 
 
 def get_interval_mask(domain, lower_limit=None, upper_limit=None):
@@ -367,8 +367,8 @@ def check_flag_d(elevation, wave_crests, wave_troughs, threshold=QC_FLAG_D_THRES
 
 def check_flag_e(times):
     """Check for records that are not equally spaced in time"""
-    sampling_rates = np.around(np.diff(times.astype(np.float64)), 6)
-    return len(np.unique(sampling_rates)) == 1
+    sampling_dt = np.around(np.diff(times.astype(np.float64)), 6)
+    return len(np.unique(sampling_dt)) == 1
 
 
 def check_flag_f(elevation, threshold=QC_FLAG_F_THRESHOLD):
@@ -455,9 +455,9 @@ def get_wave_parameters(local_id, t, z, water_depth, input_hash):
 
 def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_depth,
                        gravity=GRAVITY, density=DENSITY):
-    sample_rate = np.around(np.diff(time) / np.timedelta64(1, 's'), 6)
-    assert len(np.unique(sample_rate)) == 1
-    sample_rate = sample_rate[0]
+    sample_dt = np.around(np.diff(time) / np.timedelta64(1, 's'), 6)
+    assert len(np.unique(sample_dt)) == 1
+    sample_dt = sample_dt[0]
 
     ssh = compute_ssh(z_displacement)
     elevation = compute_elevation(z_displacement, ssh)
@@ -468,7 +468,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     excess_kurtosis = compute_excess_kurtosis(elevation)
     valid_data_ratio = compute_valid_data_ratio(z_displacement)
 
-    frequencies, wave_spectral_density = compute_spectral_density_smooth(elevation, sample_rate)
+    frequencies, wave_spectral_density = compute_spectral_density_smooth(elevation, sample_dt)
     zeroth_moment = compute_nth_moment(frequencies, wave_spectral_density, 0)
     significant_wave_height_spectral = compute_significant_wave_height_spectral(zeroth_moment)
 

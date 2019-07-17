@@ -6,7 +6,7 @@ Our primary data source will be the CDIP buoys:
 
 - 151 buoys
 - XYZ displacement at measurement frequency 1.28Hz
-- Total data size 235GB containing more than 1e10 waves
+- Total data size 519GB containing more than 1e10 waves
 - Most buoys in coastal regions, some in deep water (how many?)
 
 However, this specification should be flexible enough to incorporate additional future datasets should they become available.
@@ -105,11 +105,10 @@ Additional metadata:
 - Station name (scalar)
 - Local wave ID
 - Frequency bracket
-- Sample time (only used for raw elevation, fixed to 32 values)
 
 ### Variables
 
-By "wave" we mean the series of surface elevations (relative to the 30 minute mean elevation) from any given zero downcrossing to the next zero downcrossing (some waves might be excluded due to quality control criteria, see below).
+By "wave" we mean the series of surface elevations (relative to the 30 minute mean elevation) from any given zero upcrossing to the next zero upcrossing (some waves might be excluded due to quality control criteria, see below).
 
 Frequency bands:
 
@@ -130,7 +129,7 @@ Frequency bands:
 7. Wave end time
 8. Zero-crossing period
 9. Zero-crossing wavelength
-10. Raw elevation over 30m SSH (2D variable)
+10. Raw elevation over 30m SSH (variable length variable)
 11. Crest height over 30m SSH
 12. Trough depth below 30m SSH
 13. Wave height
@@ -144,44 +143,44 @@ Frequency bands:
 
 Quantities are computed directly from the raw displacements. All time averages stop at wave start time.
 
-19. Aggregate start
-20. Aggregate end
-21. Significant wave height Hm0 (30m)
-22. Significant wave height Hm0 (10m)
-23. Significant wave height H1/3 (30m)
-24. Significant wave height H1/3 (10m)
-25. Sea surface height (30m)
-26. Sea surface height (10m)
-27. Skewness (30m)
-28. Skewness (10m)
-29. Excess kurtosis (30m)
-30. Excess kurtosis (10m)
-31. Spectral bandwidth (30m)
-32. Spectral bandwidth (10m)
-33. Characteristic wave steepness (30m)
-34. Characteristic wave steepness (10m)
-35. Mean zero-crossing period (30m)
-36. Mean zero-crossing period (10m)
-37. Mean spectral period (30m)
-38. Mean spectral period (10m)
-39. Benjamin-Feir index (30m)
-40. Benjamin-Feir index (10m)
-41. Valid data ratio (30m)
-42. Valid data ratio (10m)
-43. Peak wave period (30m)
-44. Peak wave period (10m)
-45. Peak wave length (30m)
-46. Peak wave length (10m)
-47. Total energy in frequency interval 1 (30m)
-48. Total energy in frequency interval 1 (10m)
-49. Total energy in frequency interval 2 (30m)
-50. Total energy in frequency interval 2 (10m)
-51. Total energy in frequency interval 3 (30m)
-52. Total energy in frequency interval 3 (10m)
-53. Total energy in frequency interval 4 (30m)
-54. Total energy in frequency interval 4 (10m)
-55. Total energy in frequency interval 5 (30m)
-56. Total energy in frequency interval 5 (10m)
+19. Aggregate start (30m)
+20. Aggregate start (10m)
+21. Aggregate end (30m)
+22. Aggregate end (10m)
+23. Significant wave height Hm0 (30m)
+24. Significant wave height Hm0 (10m)
+25. Significant wave height H1/3 (30m)
+26. Significant wave height H1/3 (10m)
+27. Maximum wave height (30m)
+28. Maximum wave height (10m)
+29. Sea surface height (30m)
+30. Sea surface height (10m)
+31. Skewness (30m)
+32. Skewness (10m)
+33. Excess kurtosis (30m)
+34. Excess kurtosis (10m)
+35. Spectral bandwidth - peakedness (30m)
+36. Spectral bandwidth - peakedness (10m)
+37. Spectral bandwidth - narrowness (30m)
+38. Spectral bandwidth - narrowness (10m)
+39. Characteristic wave steepness (30m)
+40. Characteristic wave steepness (10m)
+41. Mean zero-crossing period (30m)
+42. Mean zero-crossing period (10m)
+43. Mean spectral period (30m)
+44. Mean spectral period (10m)
+45. Benjamin-Feir index - peakedness (30m)
+46. Benjamin-Feir index - peakedness (10m)
+47. Benjamin-Feir index - narrowness (30m)
+48. Benjamin-Feir index - narrowness (10m)
+49. Valid data ratio (30m)
+50. Valid data ratio (10m)
+51. Peak wave period (30m)
+52. Peak wave period (10m)
+53. Peak wave length (30m)
+54. Peak wave length (10m)
+55. Total energy in frequency intervals (30m)
+56. Total energy in frequency intervals (10m)
 
 #### Directional information
 
@@ -189,17 +188,9 @@ Quantities are not re-computed, but taken from the 30m CDIP data products.
 Always take the closest data point (in time), so the maximum offset is 15m.
 
 57. Sampling time for directional quantities
-58. Dominant directional spread at frequency interval 1
-59. Dominant directional spread at frequency interval 2
-60. Dominant directional spread at frequency interval 3
-61. Dominant directional spread at frequency interval 4
-62. Dominant directional spread at frequency interval 5
-63. Dominant wave mean direction at frequency interval 1
-64. Dominant wave mean direction at frequency interval 2
-65. Dominant wave mean direction at frequency interval 3
-66. Dominant wave mean direction at frequency interval 4
-67. Dominant wave mean direction at frequency interval 5
-68. Peak wave direction
+58. Dominant directional spread in frequency intervals
+59. Dominant wave mean direction in frequency intervals
+60. Peak wave direction
 
 Dominant quantities consist of frequency average weighted by spectral energy density.
 
@@ -211,7 +202,7 @@ Loosely after Christou and Ewans (2014):
 - a. Individual waves with a zero-crossing wave period >25s.
 - b. The rate of change of surface elevation exceeds the limit rate of change by a factor of 2.
 - c. Ten consecutive data points of the same value.
-- d. Any absolute crest or trough elevation is greater than 8 times the standard deviation of the 30-min water surface elevation.
+- d. Any absolute crest or trough elevation is greater than 8 times the normalized median absolute deviation of the surface elevation.
 - e. Surface elevations are not equally spaced in time (but they may contain missing data).
 - f. The ratio of missing to valid data exceeds 5%.
 - g. Less than 100 individual recorded zero-crossings.
