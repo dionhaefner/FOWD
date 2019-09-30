@@ -75,7 +75,6 @@ DATASET_VARIABLES = dict(
     wave_zero_crossing_period=dict(
         dims=('wave_id_local',),
         dtype='float32',
-        least_significant_digit=3,
         attrs=dict(
             long_name='Wave zero-crossing period relative to 30m SSH',
             units='seconds',
@@ -86,7 +85,6 @@ DATASET_VARIABLES = dict(
     wave_zero_crossing_wavelength=dict(
         dims=('wave_id_local',),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Wave zero-crossing wavelength relative to 30m SSH',
             units='meters',
@@ -106,7 +104,6 @@ DATASET_VARIABLES = dict(
     wave_crest_height=dict(
         dims=('wave_id_local',),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Wave crest height relative to 30m SSH',
             units='meters',
@@ -116,7 +113,6 @@ DATASET_VARIABLES = dict(
     wave_trough_depth=dict(
         dims=('wave_id_local',),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Wave trough depth relative to 30m SSH',
             units='meters',
@@ -126,17 +122,25 @@ DATASET_VARIABLES = dict(
     wave_height=dict(
         dims=('wave_id_local',),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Absolute wave height relative to 30m SSH',
             units='meters',
         )
     ),
 
+    wave_ursell_number=dict(
+        dims=('wave_id_local',),
+        dtype='float32',
+        attrs=dict(
+            long_name='Ursell number',
+            units='1',
+            valid_min='0',
+        )
+    ),
+
     wave_maximum_elevation_slope=dict(
         dims=('wave_id_local',),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Maximum slope of surface elevation in time',
             units='m s-1',
@@ -204,7 +208,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_significant_wave_height_spectral': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=2,
             attrs=dict(
                 long_name='Significant wave height estimated from spectral density spectrum (Hm0)',
                 units='meters',
@@ -213,7 +216,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_significant_wave_height_direct': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=2,
             attrs=dict(
                 long_name='Significant wave height estimated from wave history (H1/3)',
                 units='meters',
@@ -222,7 +224,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_maximum_wave_height': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=2,
             attrs=dict(
                 long_name='Maximum wave height estimated from wave history',
                 units='meters',
@@ -231,7 +232,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_mean_period_direct': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=2,
             attrs=dict(
                 long_name='Mean zero-crossing period estimated from wave history',
                 units='seconds',
@@ -240,25 +240,14 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_mean_period_spectral': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=2,
             attrs=dict(
                 long_name='Mean wave period estimated from spectral density spectrum',
                 units='seconds',
             )
         ),
-        f'sea_state_{interval}m_sea_surface_height': dict(
-            dims=('wave_id_local',),
-            dtype='float32',
-            least_significant_digit=2,
-            attrs=dict(
-                long_name='Sea surface height (mean of vertical displacement)',
-                units='meters',
-            )
-        ),
         f'sea_state_{interval}m_skewness': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=3,
             attrs=dict(
                 long_name='Skewness of sea surface elevation',
                 units='1',
@@ -267,7 +256,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_kurtosis': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=3,
             attrs=dict(
                 long_name='Excess kurtosis of sea surface elevation',
                 units='1',
@@ -276,7 +264,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_valid_data_ratio': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=3,
             attrs=dict(
                 long_name='Ratio of valid measurements to all measurements',
                 valid_min=0,
@@ -287,7 +274,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_peak_wave_period': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=2,
             attrs=dict(
                 long_name='Dominant wave period',
                 units='seconds',
@@ -296,7 +282,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_peak_wavelength': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=2,
             attrs=dict(
                 long_name='Dominant wavelength',
                 units='meters',
@@ -305,7 +290,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_steepness': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=4,
             attrs=dict(
                 long_name='Dominant wave steepness',
                 units='1',
@@ -314,7 +298,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_bandwidth_peakedness': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=3,
             attrs=dict(
                 long_name=(
                     'Spectral bandwidth estimated through spectral peakedness '
@@ -326,7 +309,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_bandwidth_narrowness': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=3,
             attrs=dict(
                 long_name='Spectral bandwidth estimated through spectral narrowness',
                 units='1',
@@ -335,7 +317,6 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_benjamin_feir_index_peakedness': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=4,
             attrs=dict(
                 long_name='Benjamin-Feir index estimated through steepness and peakedness',
                 units='1',
@@ -344,16 +325,24 @@ for interval in SEA_STATE_INTERVALS:
         f'sea_state_{interval}m_benjamin_feir_index_narrowness': dict(
             dims=('wave_id_local',),
             dtype='float32',
-            least_significant_digit=4,
             attrs=dict(
                 long_name='Benjamin-Feir index estimated through steepness and narrowness',
                 units='1',
             )
         ),
+        f'sea_state_{interval}m_groupiness': dict(
+            dims=('wave_id_local',),
+            dtype='float32',
+            attrs=dict(
+                long_name='Groupiness parameter (r) estimated from spectral density',
+                units='1',
+                valid_min='0',
+                valid_max='1',
+            )
+        ),
         f'sea_state_{interval}m_energy_in_frequency_interval': dict(
             dims=('wave_id_local', 'meta_frequency_band'),
             dtype='float32',
-            least_significant_digit=1,
             attrs=dict(
                 long_name='Total power contained in frequency band',
                 units='watts',
@@ -374,7 +363,6 @@ DATASET_VARIABLES.update(dict(
     direction_dominant_spread_in_frequency_interval=dict(
         dims=('wave_id_local', 'meta_frequency_band'),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Dominant directional spread in frequency band',
             units='degrees',
@@ -385,7 +373,6 @@ DATASET_VARIABLES.update(dict(
     direction_dominant_direction_in_frequency_interval=dict(
         dims=('wave_id_local', 'meta_frequency_band'),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Dominant wave direction in frequency band',
             units='degrees',
@@ -396,7 +383,6 @@ DATASET_VARIABLES.update(dict(
     direction_peak_wave_direction=dict(
         dims=('wave_id_local',),
         dtype='float32',
-        least_significant_digit=2,
         attrs=dict(
             long_name='Peak wave direction relative to normal-north',
             units='degrees',
@@ -528,9 +514,6 @@ def write_records(wave_records, filename, station_name):
                 zlib=True, fletcher32=True,
                 chunksizes=[CHUNKSIZES[dim] for dim in dims]
             )
-
-            if 'least_significant_digit' in meta:
-                extra_args.update(least_significant_digit=meta['least_significant_digit'])
 
             # determine dtype
             if meta['dtype'] == 'vlen':
