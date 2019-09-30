@@ -311,9 +311,6 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                 wave_records.clear()
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
-            if local_wave_id > 100000:
-                break
-
         else:
             # all waves processed
             pbar.update(len(elevation) - last_wave_stop)
