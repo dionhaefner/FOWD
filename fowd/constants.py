@@ -39,3 +39,6 @@ QC_FLAG_D_THRESHOLD = 8  # maximum allowed exceedance of surface elevation MADN
 QC_FLAG_E_THRESHOLD = None  # not used
 QC_FLAG_F_THRESHOLD = 0.05  # maximum allowed ratio of invalid data
 QC_FLAG_G_THRESHOLD = 100  # minimum number of zero-crossing periods in wave history
+
+# QC logging options
+QC_LOG_THRESHOLD = 2  # wave height (in units of sig. wave height) for which failed QC is logged

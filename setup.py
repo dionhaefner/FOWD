@@ -32,6 +32,7 @@ setup(
     install_requires=[
         'bottleneck',
         'click',
+        'filelock',
         'netcdf4',
         'numpy',
         'scipy>=1.0',

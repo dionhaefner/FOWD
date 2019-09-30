@@ -28,10 +28,14 @@ def cli(ctx):
 @click.option(
     '-o', '--out-folder',
     type=click.Path(file_okay=False, writable=True, exists=False),
-    required=True
+    required=True,
+)
+@click.option(
+    '--dump-qc', is_flag=True, default=False,
+    help='Dump records that fail QC to JSON file',
 )
 @click.option('-n', '--nproc', default=None, type=int)
-def from_cdip(cdip_folder, out_folder, nproc):
+def from_cdip(cdip_folder, out_folder, dump_qc, nproc):
     from .cdip import process_cdip_station
     from .logs import setup_file_logger
 
@@ -43,14 +47,26 @@ def from_cdip(cdip_folder, out_folder, nproc):
     )
     setup_file_logger(logfile)
 
+    if dump_qc:
+        qc_outfile = os.path.join(
+            out_folder,
+            f'fowd_cdip_{datetime.datetime.today():%Y%m%dT%H%M%S}_qc.json'
+        )
+        with open(qc_outfile, 'w'):
+            pass
+    else:
+        qc_outfile = None
+
     try:
-        process_cdip_station(cdip_folder, out_folder, nproc=nproc)
+        process_cdip_station(cdip_folder, out_folder, nproc=nproc, qc_outfile=qc_outfile)
     except Exception:
         click.echo('Error during processing', err=True)
         raise
     else:
         click.echo('Processing finished successfully')
     finally:
+        if dump_qc:
+            click.echo(f'QC information written to {qc_outfile}')
         click.echo(f'Log file written to {logfile}')
 
 
