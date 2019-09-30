@@ -99,7 +99,9 @@ def compute_period(t, z):
 
 
 def compute_zero_crossing_wavelength(period, water_depth, gravity=GRAVITY):
-    return 1. / frequency_to_wavenumber(1. / period, water_depth, gravity)
+    return wavenumber_to_wavelength(
+        frequency_to_wavenumber(1. / period, water_depth, gravity)
+    )
 
 
 def compute_maximum_slope(t, elevation):
@@ -120,18 +122,18 @@ def compute_wave_height(crest_height, trough_depth):
     return crest_height - trough_depth
 
 
+def compute_ursell_number(wave_height, wavelength, water_depth):
+    return wave_height * wavelength ** 2 / water_depth ** 3
+
+
 # aggregates
 
 def integrate(y, x):
     return np.trapz(y, x)
 
 
-def compute_ssh(displacement):
-    return np.nanmean(displacement)
-
-
-def compute_elevation(displacement, ssh):
-    return displacement - ssh
+def compute_elevation(displacement):
+    return displacement - np.nanmean(displacement)
 
 
 def compute_significant_wave_height(waveheights):
@@ -211,7 +213,14 @@ def compute_peak_frequency(frequencies, wave_spectral_density):
 
 
 def frequency_to_wavenumber(frequency, water_depth, gravity):
-    """Approximate inverse dispersion relation for linear waves"""
+    """Approximate inverse dispersion relation for linear waves
+
+    Reference:
+
+        Holthuijsen, Leo H. Waves in Oceanic and Coastal Waters.
+        Cambridge University Press, 2010.
+
+    """
     alpha_k = (2 * np.pi * frequency) ** 2 * water_depth / gravity
     beta_k = alpha_k / np.sqrt(np.tanh(alpha_k))
 
@@ -223,6 +232,10 @@ def frequency_to_wavenumber(frequency, water_depth, gravity):
         (alpha_k + beta_k ** 2 * np.cosh(beta_k) ** (-2))
         / (water_depth * (np.tanh(beta_k) + beta_k * np.cosh(beta_k) ** (-2)))
     )
+
+
+def wavenumber_to_wavelength(wavenumber):
+    return 2 * np.pi / wavenumber
 
 
 def compute_nth_moment(frequencies, wave_spectral_density, n):
@@ -255,14 +268,12 @@ def compute_bandwidth_narrowness(zeroth_moment, frequencies, wave_spectral_densi
 def compute_bandwidth_broadness(zeroth_moment, frequencies, wave_spectral_density):
     fourth_moment = compute_nth_moment(frequencies, wave_spectral_density, 4)
     second_moment = compute_nth_moment(frequencies, wave_spectral_density, 2)
-    narrowness = np.sqrt(1 - second_moment ** 2 /
-                         (zeroth_moment * fourth_moment))
+    narrowness = np.sqrt(1 - second_moment ** 2 / (zeroth_moment * fourth_moment))
     return narrowness
 
 
 def compute_bandwidth_peakedness(zeroth_moment, frequencies, wave_spectral_density):
-    q_p = 2 / zeroth_moment ** 2 * \
-        integrate(frequencies * wave_spectral_density ** 2, frequencies)
+    q_p = 2 / zeroth_moment ** 2 * integrate(frequencies * wave_spectral_density ** 2, frequencies)
     return 1. / (np.sqrt(np.pi) * q_p)
 
 
@@ -285,7 +296,34 @@ def compute_benjamin_feir_index(bandwidth, steepness, water_depth, peak_wavenumb
     return steepness / bandwidth * nu * np.sqrt(np.maximum(beta / alpha, 0))
 
 
-# spectral information
+def compute_groupiness(zeroth_moment, frequencies, wave_spectral_density):
+    """Compute groupiness of the wave record from spectral density.
+
+    Reference:
+
+        Tayfun, M. Aziz, and Francesco Fedele. "Wave-Height Distributions and Nonlinear Effects."
+        Ocean Engineering, vol. 34, no. 11, Aug. 2007, pp. 1631–49. ScienceDirect,
+        doi:10.1016/j.oceaneng.2006.11.006.
+
+
+    """
+    # convert f -> omega and S_f -> S_omega
+    angular_frequencies = 2 * np.pi * frequencies
+    angular_density = wave_spectral_density / (2 * np.pi)
+
+    # first moment in frequency domain -> no factor pi/2
+    first_moment = compute_nth_moment(frequencies, wave_spectral_density, 1)
+    t_bar = zeroth_moment / first_moment
+
+    arg = angular_frequencies * t_bar / 2.
+
+    c_rho = integrate(angular_density * np.cos(arg), angular_frequencies)
+    c_lambda = integrate(angular_density * np.sin(arg), angular_frequencies)
+
+    return 1. / zeroth_moment * np.sqrt(c_rho ** 2 + c_lambda ** 2)
+
+
+# directional information
 
 def circular_convolution(coords, angle, operand):
     """Computes the weighted convolution of an angle with another function"""
@@ -302,9 +340,7 @@ def circular_convolution(coords, angle, operand):
     xconv = integrate(x * operand, x=coords) / norm
     yconv = integrate(y * operand, x=coords) / norm
     res = np.arctan2(xconv, yconv)
-    res_deg = np.degrees(res)
-    if res_deg < 0:
-        res_deg += 360
+    res_deg = np.degrees(res) % 360
     return res_deg
 
 
@@ -409,16 +445,16 @@ def check_quality_flags(time, elevation, zero_crossing_periods, wave_crests, wav
 
 # top-level functions
 
-def get_station_meta(filepath, uuid, lat, lon, depth, rate):
+def get_station_meta(filepath, uuid, latitude, longitude, water_depth, sampling_rate):
     filename = os.path.basename(filepath)
 
     return {
         'source_file_name': filename,
         'source_file_uuid': uuid,
-        'deploy_latitude': float(lat),
-        'deploy_longitude': float(lon),
-        'water_depth': float(depth),
-        'sampling_rate': float(rate),
+        'deploy_latitude': float(latitude),
+        'deploy_longitude': float(longitude),
+        'water_depth': float(water_depth),
+        'sampling_rate': float(sampling_rate),
     }
 
 
@@ -435,6 +471,7 @@ def get_wave_parameters(local_id, t, z, water_depth, input_hash):
     crest_height = compute_crest_height(z)
     trough_depth = compute_trough_depth(z)
     wave_height = compute_wave_height(crest_height, trough_depth)
+    ursell_number = compute_ursell_number(wave_height, wavelength, water_depth)
 
     raw_elevation = z[1:-1].astype('float32')
 
@@ -449,6 +486,7 @@ def get_wave_parameters(local_id, t, z, water_depth, input_hash):
         'crest_height': crest_height,
         'trough_depth': trough_depth,
         'height': wave_height,
+        'ursell_number': ursell_number,
         'raw_elevation': raw_elevation,
     }
 
@@ -459,8 +497,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     assert len(np.unique(sample_dt)) == 1
     sample_dt = sample_dt[0]
 
-    ssh = compute_ssh(z_displacement)
-    elevation = compute_elevation(z_displacement, ssh)
+    elevation = compute_elevation(z_displacement)
     significant_wave_height_direct = compute_significant_wave_height(wave_heights)
     maximum_wave_height = compute_maximum_wave_height(wave_heights)
     mean_period_direct = compute_mean_wave_period(wave_periods)
@@ -480,7 +517,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
 
     peak_frequency = compute_peak_frequency(frequencies, wave_spectral_density)
     peak_wavenumber = frequency_to_wavenumber(peak_frequency, water_depth, gravity)
-    peak_wavelength = 1. / peak_wavenumber
+    peak_wavelength = wavenumber_to_wavelength(peak_wavenumber)
     peak_period = 1. / peak_frequency
 
     steepness = compute_steepness(zeroth_moment, peak_wavenumber)
@@ -499,6 +536,8 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         bandwidth_narrowness, steepness, water_depth, peak_wavenumber
     )
 
+    groupiness = compute_groupiness(zeroth_moment, frequencies, wave_spectral_density)
+
     spectral_energy_density = compute_energy_spectrum(wave_spectral_density, gravity, density)
 
     energy_in_frequency_interval = [
@@ -510,7 +549,6 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'start_time': time[0],
         'end_time': time[-1],
 
-        'sea_surface_height': ssh,
         'significant_wave_height_direct': significant_wave_height_direct,
         'significant_wave_height_spectral': significant_wave_height_spectral,
         'mean_period_direct': mean_period_direct,
@@ -527,6 +565,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'bandwidth_narrowness': bandwidth_narrowness,
         'benjamin_feir_index_peakedness': bfi_peakedness,
         'benjamin_feir_index_narrowness': bfi_narrowness,
+        'groupiness': groupiness,
 
         'energy_in_frequency_interval': energy_in_frequency_interval,
     }

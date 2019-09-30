@@ -133,64 +133,67 @@ Frequency bands:
 11. Crest height over 30m SSH
 12. Trough depth below 30m SSH
 13. Wave height
-14. Maximum elevation slope
-15. Buoy latitude
-16. Buoy longitude
-17. Total water depth
-18. Sampling rate
+14. Ursell number
+15. Maximum elevation slope
+16. Buoy latitude
+17. Buoy longitude
+18. Total water depth
+19. Sampling rate
 
 #### Aggregates
 
 Quantities are computed directly from the raw displacements. All time averages stop at wave start time.
 
-19. Aggregate start (30m)
-20. Aggregate start (10m)
-21. Aggregate end (30m)
-22. Aggregate end (10m)
-23. Significant wave height Hm0 (30m)
-24. Significant wave height Hm0 (10m)
-25. Significant wave height H1/3 (30m)
-26. Significant wave height H1/3 (10m)
-27. Maximum wave height (30m)
-28. Maximum wave height (10m)
-29. Sea surface height (30m)
-30. Sea surface height (10m)
-31. Skewness (30m)
-32. Skewness (10m)
-33. Excess kurtosis (30m)
-34. Excess kurtosis (10m)
-35. Spectral bandwidth - peakedness (30m)
-36. Spectral bandwidth - peakedness (10m)
-37. Spectral bandwidth - narrowness (30m)
-38. Spectral bandwidth - narrowness (10m)
-39. Characteristic wave steepness (30m)
-40. Characteristic wave steepness (10m)
-41. Mean zero-crossing period (30m)
-42. Mean zero-crossing period (10m)
-43. Mean spectral period (30m)
-44. Mean spectral period (10m)
-45. Benjamin-Feir index - peakedness (30m)
-46. Benjamin-Feir index - peakedness (10m)
-47. Benjamin-Feir index - narrowness (30m)
-48. Benjamin-Feir index - narrowness (10m)
-49. Valid data ratio (30m)
-50. Valid data ratio (10m)
-51. Peak wave period (30m)
-52. Peak wave period (10m)
-53. Peak wave length (30m)
-54. Peak wave length (10m)
-55. Total energy in frequency intervals (30m)
-56. Total energy in frequency intervals (10m)
+20. Aggregate start (30m)
+21. Aggregate start (10m)
+22. Aggregate end (30m)
+23. Aggregate end (10m)
+24. Significant wave height Hm0 (30m)
+25. Significant wave height Hm0 (10m)
+26. Significant wave height H1/3 (30m)
+27. Significant wave height H1/3 (10m)
+28. Maximum wave height (30m)
+29. Maximum wave height (10m)
+30. Sea surface height (30m)
+31. Sea surface height (10m)
+32. Skewness (30m)
+33. Skewness (10m)
+34. Excess kurtosis (30m)
+35. Excess kurtosis (10m)
+36. Spectral bandwidth - peakedness (30m)
+37. Spectral bandwidth - peakedness (10m)
+38. Spectral bandwidth - narrowness (30m)
+39. Spectral bandwidth - narrowness (10m)
+40. Characteristic wave steepness (30m)
+41. Characteristic wave steepness (10m)
+42. Mean zero-crossing period (30m)
+43. Mean zero-crossing period (10m)
+44. Mean spectral period (30m)
+45. Mean spectral period (10m)
+46. Benjamin-Feir index - peakedness (30m)
+47. Benjamin-Feir index - peakedness (10m)
+48. Benjamin-Feir index - narrowness (30m)
+49. Benjamin-Feir index - narrowness (10m)
+50. Groupiness (30m)
+51. Groupiness (10m)
+52. Valid data ratio (30m)
+53. Valid data ratio (10m)
+54. Peak wave period (30m)
+55. Peak wave period (10m)
+56. Peak wave length (30m)
+57. Peak wave length (10m)
+58. Total energy in frequency intervals (30m)
+59. Total energy in frequency intervals (10m)
 
 #### Directional information
 
 Quantities are not re-computed, but taken from the 30m CDIP data products.
 Always take the closest data point (in time), so the maximum offset is 15m.
 
-57. Sampling time for directional quantities
-58. Dominant directional spread in frequency intervals
-59. Dominant wave mean direction in frequency intervals
-60. Peak wave direction
+60. Sampling time for directional quantities
+61. Dominant directional spread in frequency intervals
+62. Dominant wave mean direction in frequency intervals
+63. Peak wave direction
 
 Dominant quantities consist of frequency average weighted by spectral energy density.
 
