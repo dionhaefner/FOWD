@@ -16,3 +16,6 @@ def setup_file_logger(logfile):
         filemode='w'
     )
     logging.captureWarnings(True)
+
+    # silence third-party loggers
+    logging.getLogger('filelock').setLevel('CRITICAL')

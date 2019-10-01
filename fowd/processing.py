@@ -132,6 +132,9 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
     station_meta = get_station_meta(**meta_args)
     input_hash = get_md5_hash(meta_args['filepath'])
 
+    if qc_outfile is not None:
+        qc_lock = filelock.FileLock(f'{qc_outfile}.lock')
+
     def handle_output(wave_records, wave_params_history, num_flags_fired):
         # convert records to NumPy array
         wave_records_np = {}
@@ -240,9 +243,9 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                     significant_waveheight = compute_significant_wave_height(
                         wave_params_history['height']
                     )
-                    lock = filelock.FileLock(f'{qc_outfile}.lock')
+
                     if wave_params['height'] > QC_LOG_THRESHOLD * significant_waveheight:
-                        with lock, open(qc_outfile, 'a') as qcf:
+                        with qc_lock, open(qc_outfile, 'a') as qcf:
                             qcf.write(json.dumps(qc_format(flags_fired, *qc_args)) + '\n')
 
                 # skip further processing for this wave
