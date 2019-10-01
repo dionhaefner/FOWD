@@ -258,8 +258,7 @@ def compute_steepness(zeroth_moment, peak_wavenumber):
     return np.sqrt(2 * zeroth_moment) * peak_wavenumber
 
 
-def compute_bandwidth_narrowness(zeroth_moment, frequencies, wave_spectral_density):
-    first_moment = compute_nth_moment(frequencies, wave_spectral_density, 1)
+def compute_bandwidth_narrowness(zeroth_moment, first_moment, frequencies, wave_spectral_density):
     second_moment = compute_nth_moment(frequencies, wave_spectral_density, 2)
     narrowness = np.sqrt(zeroth_moment * second_moment / first_moment ** 2 - 1)
     return narrowness
@@ -296,7 +295,7 @@ def compute_benjamin_feir_index(bandwidth, steepness, water_depth, peak_wavenumb
     return steepness / bandwidth * nu * np.sqrt(np.maximum(beta / alpha, 0))
 
 
-def compute_groupiness(zeroth_moment, frequencies, wave_spectral_density):
+def compute_groupiness_spectral(zeroth_moment, first_moment, frequencies, wave_spectral_density):
     """Compute groupiness of the wave record from spectral density.
 
     Reference:
@@ -312,7 +311,6 @@ def compute_groupiness(zeroth_moment, frequencies, wave_spectral_density):
     angular_density = wave_spectral_density / (2 * np.pi)
 
     # first moment in frequency domain -> no factor pi/2
-    first_moment = compute_nth_moment(frequencies, wave_spectral_density, 1)
     t_bar = zeroth_moment / first_moment
 
     arg = angular_frequencies * t_bar / 2.
@@ -321,6 +319,47 @@ def compute_groupiness(zeroth_moment, frequencies, wave_spectral_density):
     c_lambda = integrate(angular_density * np.sin(arg), angular_frequencies)
 
     return 1. / zeroth_moment * np.sqrt(c_rho ** 2 + c_lambda ** 2)
+
+
+def compute_groupiness_direct(zeroth_moment, first_moment, time, elevation):
+    """Compute groupiness of the wave record from time series and its Hilbert transform.
+
+    Reference:
+
+        Tayfun, M. Aziz, and Francesco Fedele. "Wave-Height Distributions and Nonlinear Effects."
+        Ocean Engineering, vol. 34, no. 11, Aug. 2007, pp. 1631–49. ScienceDirect,
+        doi:10.1016/j.oceaneng.2006.11.006.
+
+
+    """
+    # first moment in frequency domain -> no factor pi/2
+    t_bar = zeroth_moment / first_moment
+
+    time_in_seconds = (time - time[0]) / np.timedelta64(1, 's')
+
+    # compute normalized autocorrelation at t_bar / 2
+    elevation_shifted = np.interp(
+        time_in_seconds + t_bar / 2, time_in_seconds, elevation,
+        left=np.nan, right=np.nan
+    )
+
+    elevation_std = np.nanstd(elevation)
+    rho = np.nanmean(elevation * elevation_shifted) / elevation_std ** 2
+
+    # compute normalized hilbert transformed autocorrelation at t_bar / 2
+    elevation_hilbert = np.imag(scipy.signal.hilbert(elevation))
+    elevation_hilbert_shifted = np.interp(
+        time_in_seconds + t_bar / 2, time_in_seconds, elevation_hilbert,
+        left=np.nan, right=np.nan
+    )
+
+    elevation_hilbert_std = np.nanstd(elevation_hilbert)
+    rho_hilbert = (
+        np.nanmean(elevation * elevation_hilbert_shifted)
+        / (elevation_std * elevation_hilbert_std)
+    )
+
+    return np.sqrt(rho ** 2 + rho_hilbert ** 2)
 
 
 # directional information
@@ -507,6 +546,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
 
     frequencies, wave_spectral_density = compute_spectral_density_smooth(elevation, sample_dt)
     zeroth_moment = compute_nth_moment(frequencies, wave_spectral_density, 0)
+    first_moment = compute_nth_moment(frequencies, wave_spectral_density, 1)
     significant_wave_height_spectral = compute_significant_wave_height_spectral(zeroth_moment)
 
     mean_period_spectral = compute_mean_wave_period_spectral(
@@ -526,7 +566,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         zeroth_moment, frequencies, wave_spectral_density
     )
     bandwidth_narrowness = compute_bandwidth_narrowness(
-        zeroth_moment, frequencies, wave_spectral_density
+        zeroth_moment, first_moment, frequencies, wave_spectral_density
     )
 
     bfi_peakedness = compute_benjamin_feir_index(
@@ -536,7 +576,12 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         bandwidth_narrowness, steepness, water_depth, peak_wavenumber
     )
 
-    groupiness = compute_groupiness(zeroth_moment, frequencies, wave_spectral_density)
+    groupiness_spectral = compute_groupiness_spectral(
+        zeroth_moment, first_moment, frequencies, wave_spectral_density
+    )
+    groupiness_direct = compute_groupiness_direct(
+        zeroth_moment, first_moment, time, elevation
+    )
 
     spectral_energy_density = compute_energy_spectrum(wave_spectral_density, gravity, density)
 
@@ -565,7 +610,9 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'bandwidth_narrowness': bandwidth_narrowness,
         'benjamin_feir_index_peakedness': bfi_peakedness,
         'benjamin_feir_index_narrowness': bfi_narrowness,
-        'groupiness': groupiness,
+
+        'groupiness_spectral': groupiness_spectral,
+        'groupiness_direct': groupiness_direct,
 
         'energy_in_frequency_interval': energy_in_frequency_interval,
     }
