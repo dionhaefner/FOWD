@@ -321,47 +321,6 @@ def compute_groupiness_spectral(zeroth_moment, first_moment, frequencies, wave_s
     return 1. / zeroth_moment * np.sqrt(c_rho ** 2 + c_lambda ** 2)
 
 
-def compute_groupiness_direct(zeroth_moment, first_moment, time, elevation):
-    """Compute groupiness of the wave record from time series and its Hilbert transform.
-
-    Reference:
-
-        Tayfun, M. Aziz, and Francesco Fedele. "Wave-Height Distributions and Nonlinear Effects."
-        Ocean Engineering, vol. 34, no. 11, Aug. 2007, pp. 1631–49. ScienceDirect,
-        doi:10.1016/j.oceaneng.2006.11.006.
-
-
-    """
-    # first moment in frequency domain -> no factor pi/2
-    t_bar = zeroth_moment / first_moment
-
-    time_in_seconds = (time - time[0]) / np.timedelta64(1, 's')
-
-    # compute normalized autocorrelation at t_bar / 2
-    elevation_shifted = np.interp(
-        time_in_seconds + t_bar / 2, time_in_seconds, elevation,
-        left=np.nan, right=np.nan
-    )
-
-    elevation_std = np.nanstd(elevation)
-    rho = np.nanmean(elevation * elevation_shifted) / elevation_std ** 2
-
-    # compute normalized hilbert transformed autocorrelation at t_bar / 2
-    elevation_hilbert = np.imag(scipy.signal.hilbert(elevation))
-    elevation_hilbert_shifted = np.interp(
-        time_in_seconds + t_bar / 2, time_in_seconds, elevation_hilbert,
-        left=np.nan, right=np.nan
-    )
-
-    elevation_hilbert_std = np.nanstd(elevation_hilbert)
-    rho_hilbert = (
-        np.nanmean(elevation * elevation_hilbert_shifted)
-        / (elevation_std * elevation_hilbert_std)
-    )
-
-    return np.sqrt(rho ** 2 + rho_hilbert ** 2)
-
-
 # directional information
 
 def circular_convolution(coords, angle, operand):
@@ -579,9 +538,6 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     groupiness_spectral = compute_groupiness_spectral(
         zeroth_moment, first_moment, frequencies, wave_spectral_density
     )
-    groupiness_direct = compute_groupiness_direct(
-        zeroth_moment, first_moment, time, elevation
-    )
 
     spectral_energy_density = compute_energy_spectrum(wave_spectral_density, gravity, density)
 
@@ -612,7 +568,6 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'benjamin_feir_index_narrowness': bfi_narrowness,
 
         'groupiness_spectral': groupiness_spectral,
-        'groupiness_direct': groupiness_direct,
 
         'energy_in_frequency_interval': energy_in_frequency_interval,
     }

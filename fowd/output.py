@@ -340,16 +340,6 @@ for interval in SEA_STATE_INTERVALS:
                 valid_max=1,
             )
         ),
-        f'sea_state_{interval}m_groupiness_direct': dict(
-            dims=('wave_id_local',),
-            dtype='float32',
-            attrs=dict(
-                long_name='Groupiness parameter (r) estimated from autcorrelation of time series',
-                units='1',
-                valid_min=0,
-                valid_max=1,
-            )
-        ),
         f'sea_state_{interval}m_energy_in_frequency_interval': dict(
             dims=('wave_id_local', 'meta_frequency_band'),
             dtype='float32',
