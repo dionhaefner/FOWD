@@ -221,7 +221,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
             # run QC
             sea_history_idx = slice(
                 get_time_index(wave_params['start_time'] - history_length, time),
-                wave_start
+                wave_stop + 1
             )
 
             qc_args = (
