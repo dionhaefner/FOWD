@@ -50,13 +50,14 @@ def relative_pid():
 
 def read_pickled_records(input_file):
     """Read a sequence of pickled objects in the same file"""
-    with open(input_file, 'rb') as f:
-        unpickler = pickle.Unpickler(f)
-        while True:
-            try:
-                yield unpickler.load()
-            except EOFError:
-                break
+    if os.path.isfile(input_file):
+        with open(input_file, 'rb') as f:
+            unpickler = pickle.Unpickler(f)
+            while True:
+                try:
+                    yield unpickler.load()
+                except EOFError:
+                    break
 
 
 def qc_format(flags_fired, t, z, wave_period, crest_height, trough_depth):
@@ -331,7 +332,9 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
             # all waves processed
             pbar.update(len(elevation) - last_wave_stop)
 
-        handle_output(wave_records, wave_params_history, num_flags_fired)
+        if wave_records:
+            handle_output(wave_records, wave_params_history, num_flags_fired)
+
         pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
 
     return outfile, statefile

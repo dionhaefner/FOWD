@@ -182,6 +182,10 @@ def process_cdip_station(station_folder, out_folder, qc_outfile=None, nproc=None
 
         result_records = list(read_pickled_records(result_file))
 
+        if not result_records:
+            logger.warning('No data found in file %s', filename)
+            return
+
         # concatenate subrecords
         wave_records[i] = {
             key: np.concatenate([subrecord[key] for subrecord in result_records])
