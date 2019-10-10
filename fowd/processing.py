@@ -71,6 +71,18 @@ def qc_format(flags_fired, t, z, wave_period, crest_height, trough_depth):
     )
 
 
+def is_same_version(version1, version2):
+    split_v1 = version1.split('.')
+    split_v2 = version2.split('.')
+
+    if len(split_v1) < 2 or len(split_v2) < 2:
+        # unexpected format
+        return False
+
+    # only compare major and minor version
+    return split_v1[:2] == split_v2[2:]
+
+
 def initialize_processing(record_file, state_file, input_hash):
     """Parse temporary files to re-start processing if possible"""
     default_params = dict(
@@ -90,7 +102,8 @@ def initialize_processing(record_file, state_file, input_hash):
         if saved_state['input_hash'] != input_hash:
             raise RuntimeError('Input hash has changed')
 
-        if saved_state['processing_version'] != get_proc_version():
+        this_version = get_proc_version()
+        if not is_same_version(saved_state['processing_version'], this_version):
             raise RuntimeError('Processing version has changed')
 
         for row in read_pickled_records(record_file):
