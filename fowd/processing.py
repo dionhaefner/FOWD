@@ -80,7 +80,7 @@ def is_same_version(version1, version2):
         return False
 
     # only compare major and minor version
-    return split_v1[:2] == split_v2[2:]
+    return split_v1[:2] == split_v2[:2]
 
 
 def initialize_processing(record_file, state_file, input_hash):
