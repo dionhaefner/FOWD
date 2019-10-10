@@ -240,6 +240,13 @@ def process_cdip_station(station_folder, out_folder, qc_outfile=None, nproc=None
 
     logger.info('Processing done')
 
+    # remove skipped files
+    wave_records = [subrecord for subrecord in wave_records if subrecord is not None]
+
+    if not wave_records:
+        logger.warn('Processed no files - no output to write')
+        return
+
     # concatenate subrecords
     wave_records = {
         key: np.concatenate([subrecord[key] for subrecord in wave_records])
