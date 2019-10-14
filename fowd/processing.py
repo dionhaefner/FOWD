@@ -279,11 +279,12 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                     wave_start
                 )
 
+                wave_param_timediff = wave_params['start_time'] - wave_params_history['start_time']
                 wave_param_mask = np.logical_and(
                     # do not look into the future
-                    (wave_params['start_time'] - wave_params_history['start_time']) > 0,
+                    wave_param_timediff > np.timedelta64(100, 'ms'),
                     # look at most sea_state_period minutes into the past
-                    (wave_params['start_time'] - wave_params_history['start_time']) < offset
+                    wave_param_timediff < offset
                 )
 
                 sea_state_params = get_sea_parameters(
