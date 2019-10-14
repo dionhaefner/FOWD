@@ -217,7 +217,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                 add_prefix(wave_params, 'wave')
             )
 
-            # roll over wave parameter history and append new record
+            # roll over wave parameter history and append record for current wave
             rollover_mask = (
                 (wave_params['start_time'] - wave_params_history['start_time']) < history_length
             )
@@ -279,7 +279,10 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                     wave_start
                 )
 
-                wave_param_mask = (
+                wave_param_mask = np.logical_and(
+                    # do not look into the future
+                    (wave_params['start_time'] - wave_params_history['start_time']) > 0,
+                    # look at most sea_state_period minutes into the past
                     (wave_params['start_time'] - wave_params_history['start_time']) < offset
                 )
 
