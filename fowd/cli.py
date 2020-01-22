@@ -1,5 +1,5 @@
 """
-main.py
+cli.py
 
 Entry point for CLI.
 """
