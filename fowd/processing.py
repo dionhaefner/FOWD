@@ -85,7 +85,7 @@ def qc_format(flags_fired, rel_wave_height, t, z, wave_period, crest_height, tro
     time_offset = (t - t[0]) / np.timedelta64(1, 's')
 
     def format_float_arr(floatarr, precision):
-        return [round(f, precision) for f in floatarr]
+        return [round(float(f), precision) for f in floatarr]
 
     return dict(
         flags_fired=flags_fired,
