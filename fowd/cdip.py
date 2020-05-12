@@ -190,6 +190,8 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
             logger.warning('No data found in file %s', filename)
             return
 
+        wave_records[i] = result_records
+
         # get QC information
         qc_flags_fired = read_pickle_statefile(state_file)['num_flags_fired']
 
