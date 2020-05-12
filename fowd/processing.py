@@ -81,20 +81,20 @@ def read_pickle_statefile(state_file):
         return pickle.load(f)
 
 
-def qc_format(flags_fired, wave_height, t, z, wave_period, crest_height, trough_depth):
+def qc_format(flags_fired, rel_wave_height, t, z, wave_period, crest_height, trough_depth):
     time_offset = (t - t[0]) / np.timedelta64(1, 's')
 
-    def format_floats(floatarr, precision):
+    def format_float_arr(floatarr, precision):
         return [round(f, precision) for f in floatarr]
 
     return dict(
         flags_fired=flags_fired,
-        relative_wave_height=wave_height,
-        time=format_floats(time_offset, 4),
-        elevation=format_floats(z, 4),
-        wave_periods=format_floats(wave_period, 2),
-        crest_heights=format_floats(crest_height, 2),
-        trough_depths=format_floats(trough_depth, 2)
+        relative_wave_height=float(rel_wave_height),
+        time=format_float_arr(time_offset, 4),
+        elevation=format_float_arr(z, 4),
+        wave_periods=format_float_arr(wave_period, 2),
+        crest_heights=format_float_arr(crest_height, 2),
+        trough_depths=format_float_arr(trough_depth, 2)
     )
 
 
