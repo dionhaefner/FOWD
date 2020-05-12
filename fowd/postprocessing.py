@@ -43,5 +43,5 @@ def plot_qc(qcfile, outdir, plot_flags=tuple('abdg'), plot_extreme=True):
         ax.spines['top'].set_visible(False)
         ax.set_title(f'QC flags fired: {record["flags_fired"]}')
         fig.tight_layout()
-        fig.savefig(os.path.join(outdir, f'fowd_qc_{i}.pdf'))
+        fig.savefig(os.path.join(outdir, f'fowd_qc_{i:0>4}.pdf'))
         plt.close(fig)
