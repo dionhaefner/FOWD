@@ -33,12 +33,18 @@ setup(
         'bottleneck',
         'click',
         'filelock',
+        'matplotlib',
         'netcdf4',
         'numpy',
         'scipy>=1.0',
         'tqdm',
         'xarray',
     ],
+    extras_require={
+        'testing': [
+            'pytest',
+        ]
+    },
     # CLI
     entry_points='''
         [console_scripts]

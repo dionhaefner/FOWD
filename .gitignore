@@ -1,3 +1,7 @@
+# test output
+fowd_test_*.png
+fowd_test_*.json
+
 # created version file
 fowd/_version.py
 
