@@ -16,8 +16,8 @@ import scipy.integrate
 from .constants import (
     GRAVITY, DENSITY, FREQUENCY_INTERVALS,
     QC_FLAG_A_THRESHOLD, QC_FLAG_B_THRESHOLD, QC_FLAG_C_THRESHOLD,
-    QC_FLAG_D_THRESHOLD, QC_FLAG_F_THRESHOLD, QC_FLAG_G_THRESHOLD,
-    SPECTRUM_WINDOW_SIZE,
+    QC_FLAG_D_THRESHOLD, QC_FLAG_E_THRESHOLD, QC_FLAG_F_THRESHOLD,
+    QC_FLAG_G_THRESHOLD, SPECTRUM_WINDOW_SIZE,
 )
 
 
@@ -399,10 +399,10 @@ def check_flag_d(elevation, wave_crests, wave_troughs, threshold=QC_FLAG_D_THRES
     return np.any(is_outlier(wave_crests)) or np.any(is_outlier(wave_troughs))
 
 
-def check_flag_e(times):
+def check_flag_e(times, threshold=QC_FLAG_E_THRESHOLD):
     """Check for records that are not equally spaced in time"""
-    sampling_dt = np.around(np.diff(times.astype(np.float64)), 6)
-    return len(np.unique(sampling_dt)) == 1
+    sampling_dt = np.around(np.diff(times) / np.timedelta64(1, 's'), QC_FLAG_E_THRESHOLD)
+    return len(np.unique(sampling_dt)) > 1
 
 
 def check_flag_f(elevation, threshold=QC_FLAG_F_THRESHOLD):
@@ -411,7 +411,8 @@ def check_flag_f(elevation, threshold=QC_FLAG_F_THRESHOLD):
 
 
 def check_flag_g(zero_crossing_periods, threshold=QC_FLAG_G_THRESHOLD):
-    return len(zero_crossing_periods) < 100
+    """Check for low number of waves"""
+    return len(zero_crossing_periods) < threshold
 
 
 def check_quality_flags(time, elevation, zero_crossing_periods, wave_crests, wave_troughs):
@@ -492,7 +493,6 @@ def get_wave_parameters(local_id, t, z, water_depth, input_hash):
 def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_depth,
                        gravity=GRAVITY, density=DENSITY):
     sample_dt = np.around(np.diff(time) / np.timedelta64(1, 's'), 6)
-    assert len(np.unique(sample_dt)) == 1
     sample_dt = sample_dt[0]
 
     elevation = compute_elevation(z_displacement)

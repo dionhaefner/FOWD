@@ -10,7 +10,8 @@ import filelock
 import numpy as np
 
 from .constants import (
-    WAVE_HISTORY_LENGTH, SEA_STATE_INTERVALS, QC_LOG_THRESHOLD
+    WAVE_HISTORY_LENGTH, SEA_STATE_INTERVALS,
+    QC_FAIL_LOG_THRESHOLD, QC_EXTREME_WAVE_LOG_THRESHOLD
 )
 
 from .operators import (
@@ -48,7 +49,7 @@ def relative_pid():
         return 1
 
 
-def read_pickled_records(input_file):
+def read_pickled_record_chunks(input_file):
     """Read a sequence of pickled objects in the same file"""
     if os.path.isfile(input_file):
         with open(input_file, 'rb') as f:
@@ -60,15 +61,40 @@ def read_pickled_records(input_file):
                     break
 
 
-def qc_format(flags_fired, t, z, wave_period, crest_height, trough_depth):
+def read_pickle_outfile(input_file):
+    reader = read_pickled_record_chunks(input_file)
+    try:
+        out = next(reader)
+    except StopIteration:
+        return {}
+
+    for row in reader:
+        assert set(out.keys()) == set(row.keys())
+        for key, val in row.items():
+            out[key] = np.concatenate((out[key], val))
+
+    return out
+
+
+def read_pickle_statefile(state_file):
+    with open(state_file, 'rb') as f:
+        return pickle.load(f)
+
+
+def qc_format(flags_fired, wave_height, t, z, wave_period, crest_height, trough_depth):
     time_offset = (t - t[0]) / np.timedelta64(1, 's')
+
+    def format_floats(floatarr, precision):
+        return [round(f, precision) for f in floatarr]
+
     return dict(
         flags_fired=flags_fired,
-        time=time_offset.tolist(),
-        elevation=z.tolist(),
-        wave_periods=wave_period.tolist(),
-        crest_heights=crest_height.tolist(),
-        trough_depths=trough_depth.tolist()
+        relative_wave_height=wave_height,
+        time=format_floats(time_offset, 4),
+        elevation=format_floats(z, 4),
+        wave_periods=format_floats(wave_period, 2),
+        crest_heights=format_floats(crest_height, 2),
+        trough_depths=format_floats(trough_depth, 2)
     )
 
 
@@ -97,8 +123,7 @@ def initialize_processing(record_file, state_file, input_hash):
         return default_params
 
     try:
-        with open(state_file, 'rb') as f:
-            saved_state = pickle.load(f)
+        saved_state = read_pickle_statefile(state_file)
 
         if saved_state['input_hash'] != input_hash:
             raise RuntimeError('Input hash has changed')
@@ -107,7 +132,7 @@ def initialize_processing(record_file, state_file, input_hash):
         if not is_same_version(saved_state['processing_version'], this_version):
             raise RuntimeError('Processing version has changed')
 
-        for row in read_pickled_records(record_file):
+        for row in read_pickled_record_chunks(record_file):
             last_wave_record = row
 
         wave_params_history = saved_state['wave_params_history']
@@ -150,7 +175,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
         qc_lock = filelock.FileLock(f'{qc_outfile}.lock')
 
     def handle_output(wave_records, wave_params_history, num_flags_fired):
-        # convert records to NumPy array
+        # convert records to NumPy arrays
         wave_records_np = {}
         for key, val in wave_records.items():
             if key == 'wave_raw_elevation':
@@ -248,20 +273,25 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
 
             flags_fired = check_quality_flags(*qc_args)
 
+            if qc_outfile is not None:
+                # write significant waves to QC dataset
+                significant_waveheight = compute_significant_wave_height(
+                    wave_params_history['height']
+                )
+                rel_waveheight = wave_params['height'] / significant_waveheight
+
+                above_fail_threshold = rel_waveheight > QC_FAIL_LOG_THRESHOLD
+                above_extreme_threshold = rel_waveheight > QC_EXTREME_WAVE_LOG_THRESHOLD
+                write_qc = above_extreme_threshold or (flags_fired and above_fail_threshold)
+
+                if write_qc:
+                    with qc_lock, open(qc_outfile, 'a') as qcf:
+                        qc_info = qc_format(flags_fired, rel_waveheight, *qc_args)
+                        qcf.write(json.dumps(qc_info) + '\n')
+
             if flags_fired:
                 for flag in flags_fired:
                     num_flags_fired[flag] += 1
-
-                if qc_outfile is not None:
-                    # write significant waves to QC dataset
-                    significant_waveheight = compute_significant_wave_height(
-                        wave_params_history['height']
-                    )
-
-                    if wave_params['height'] > QC_LOG_THRESHOLD * significant_waveheight:
-                        with qc_lock, open(qc_outfile, 'a') as qcf:
-                            qcf.write(json.dumps(qc_format(flags_fired, *qc_args)) + '\n')
-
                 # skip further processing for this wave
                 continue
 
@@ -282,7 +312,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                 wave_param_timediff = wave_params['start_time'] - wave_params_history['start_time']
                 wave_param_mask = np.logical_and(
                     # do not look into the future
-                    wave_param_timediff > np.timedelta64(100, 'ms'),
+                    wave_param_timediff > np.timedelta64(1, 'ms'),
                     # look at most sea_state_period minutes into the past
                     wave_param_timediff < offset
                 )

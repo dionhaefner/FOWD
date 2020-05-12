@@ -11,7 +11,7 @@ SSH_REFERENCE_INTERVAL = 30
 WAVE_HISTORY_LENGTH = 30
 
 # time series window size for spectrum calculation (in seconds)
-SPECTRUM_WINDOW_SIZE = 90
+SPECTRUM_WINDOW_SIZE = 180
 
 # frequency bands, lower and upper limit (in Hz)
 FREQUENCY_INTERVALS = (
@@ -28,7 +28,7 @@ SEA_STATE_INTERVALS = (10, 30)
 # gravitational acceleration in m/s^2
 GRAVITY = 9.81
 
-# water density in kg/m^3
+# reference density in kg/m^3
 DENSITY = 1024
 
 # QC thresholds
@@ -36,9 +36,12 @@ QC_FLAG_A_THRESHOLD = 25  # maximum allowed zero-crossing period (in seconds)
 QC_FLAG_B_THRESHOLD = 2  # maximum allowed multiple of limit rate of change
 QC_FLAG_C_THRESHOLD = 10  # maximum allowed number of consecutive identical values
 QC_FLAG_D_THRESHOLD = 8  # maximum allowed exceedance of surface elevation MADN
-QC_FLAG_E_THRESHOLD = None  # not used
+QC_FLAG_E_THRESHOLD = 2  # maximum float precision to which sampling rate has to be uniform
 QC_FLAG_F_THRESHOLD = 0.05  # maximum allowed ratio of invalid data
 QC_FLAG_G_THRESHOLD = 100  # minimum number of zero-crossing periods in wave history
 
 # QC logging options
-QC_LOG_THRESHOLD = 2  # wave height (in units of sig. wave height) for which failed QC is logged
+# wave height (in units of sig. wave height) for which failed QC is logged
+QC_FAIL_LOG_THRESHOLD = 2
+# wave height (in units of sig. wave height) above which waves are always logged
+QC_EXTREME_WAVE_LOG_THRESHOLD = 2.5

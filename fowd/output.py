@@ -351,7 +351,7 @@ for interval in SEA_STATE_INTERVALS:
     })
 
 # directional parameter metadata
-DATASET_VARIABLES.update(dict(
+DIRECTIONAL_VARIABLES = dict(
     direction_sampling_time=dict(
         dims=('wave_id_local',),
         dtype='int64',
@@ -390,7 +390,7 @@ DATASET_VARIABLES.update(dict(
             valid_max=360
         )
     ),
-))
+)
 
 
 freq_lower, freq_upper = list(zip(*FREQUENCY_INTERVALS))
@@ -438,7 +438,7 @@ COORD_ATTRS = dict(
 )
 
 
-def write_records(wave_records, filename, station_name):
+def write_records(wave_records, filename, station_name, include_direction=False):
     """Write given records to netCDF4"""
 
     dataset_metadata = dict(
@@ -490,6 +490,11 @@ def write_records(wave_records, filename, station_name):
         ('meta_frequency_band', 'uint8', np.arange(len(FREQUENCY_INTERVALS))),
     )
 
+    variables = DATASET_VARIABLES
+
+    if include_direction:
+        variables.update(DIRECTIONAL_VARIABLES)
+
     with netCDF4.Dataset(filename, 'w') as f:
         # set global metadata
         for attr, val in dataset_metadata.items():
@@ -504,7 +509,7 @@ def write_records(wave_records, filename, station_name):
             v = f.createVariable(dim, dtype, (dim,))
             v[:] = val
 
-        for name, meta in DATASET_VARIABLES.items():
+        for name, meta in variables.items():
             # add meta_station_name as additional scalar dimension
             data = wave_records[name][None, ...]
             dims = ('meta_station_name',) + meta['dims']

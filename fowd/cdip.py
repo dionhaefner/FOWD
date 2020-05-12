@@ -7,7 +7,6 @@ CDIP input file processing into FOWD datasets
 import os
 import sys
 import glob
-import pickle
 import logging
 import functools
 import multiprocessing
@@ -19,7 +18,7 @@ import xarray as xr
 
 from .constants import SSH_REFERENCE_INTERVAL
 from .output import write_records
-from .processing import compute_wave_records, read_pickled_records
+from .processing import compute_wave_records, read_pickle_outfile, read_pickle_statefile
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,11 @@ def add_surface_elevation(data):
     window_size = int(60 * SSH_REFERENCE_INTERVAL / dt)
 
     data['meanDisplacement'] = (
-        data['xyzZDisplacement'].rolling({'xyzTime': window_size}, min_periods=60).mean()
+        data['xyzZDisplacement'].rolling(
+            {'xyzTime': window_size},
+            min_periods=60,
+            center=False
+        ).mean()
     )
 
     data['xyzSurfaceElevation'] = data['xyzZDisplacement'] - data['meanDisplacement']
@@ -144,7 +147,7 @@ def get_cdip_wave_records(filepath, out_folder, qc_outfile=None):
     return outfile, statefile
 
 
-def process_cdip_station(station_folder, out_folder, qc_outfile=None, nproc=None):
+def process_cdip_station(station_folder, out_folder, nproc=None):
     """Process all deployments of a single CDIP station
 
     Supports processing in parallel (one process per input file).
@@ -155,6 +158,7 @@ def process_cdip_station(station_folder, out_folder, qc_outfile=None, nproc=None
     station_id = os.path.basename(station_folder)
     glob_pattern = os.path.join(station_folder, f'{station_id}_d??.nc')
     station_files = sorted(glob.glob(glob_pattern))
+    qc_outfile = os.path.join(out_folder, f'fowd_cdip_{station_id}.qc.json')
 
     num_inputs = len(station_files)
 
@@ -180,21 +184,14 @@ def process_cdip_station(station_folder, out_folder, qc_outfile=None, nproc=None
             logger.warning('Processing skipped for file %s', filename)
             return
 
-        result_records = list(read_pickled_records(result_file))
+        result_records = read_pickle_outfile(result_file)
 
         if not result_records:
             logger.warning('No data found in file %s', filename)
             return
 
-        # concatenate subrecords
-        wave_records[i] = {
-            key: np.concatenate([subrecord[key] for subrecord in result_records])
-            for key in result_records[0].keys()
-        }
-
         # get QC information
-        with open(state_file, 'rb') as f:
-            qc_flags_fired = pickle.load(f)['num_flags_fired']
+        qc_flags_fired = read_pickle_statefile(state_file)['num_flags_fired']
 
         # log progress
         num_done = sum(record is not None for record in wave_records)
@@ -264,4 +261,4 @@ def process_cdip_station(station_folder, out_folder, qc_outfile=None, nproc=None
     out_file = os.path.join(out_folder, f'fowd_cdip_{station_id}.nc')
     logger.info('Writing output to %s', out_file)
     station_name = f'CDIP_{station_id}'
-    write_records(wave_records, out_file, station_name)
+    write_records(wave_records, out_file, station_name, include_direction=True)
