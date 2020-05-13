@@ -20,7 +20,9 @@ def plot_qc(qcfile, outdir, plot_flags=tuple('abdg'), plot_extreme=True):
 
     os.makedirs(outdir, exist_ok=True)
 
-    for i, record in enumerate(tqdm.tqdm(qc_records), 1):
+    i = 1
+
+    for record in tqdm.tqdm(qc_records):
         process_record = any(flag in plot_flags for flag in record['flags_fired'])
 
         if plot_extreme:
@@ -30,18 +32,32 @@ def plot_qc(qcfile, outdir, plot_flags=tuple('abdg'), plot_extreme=True):
             continue
 
         mintime, maxtime = np.min(record['time']), np.max(record['time'])
+
+        # don't plot records with extreme time jumps
+        if maxtime - mintime > 10000 and 'e' in record['flags_fired']:
+            continue
+
         elev_range = np.nanmax(np.abs(record['elevation']))
 
-        fig = plt.figure(figsize=(15, 4))
-        ax = plt.gca()
-        # ax = plt.axes([0, 0, 1, 1])
+        info = [
+            f'QC flags fired: {record["flags_fired"]}' if record['flags_fired'] else 'QC passed',
+            f'Wave height: {record["relative_wave_height"]:.2f} SWH',
+            f'Record start time: {record["start_date"]}',
+            f'Source file: {record["filename"]}',
+        ]
+
+        fig, ax = plt.subplots(1, 1, figsize=(15, 4))
         plt.plot(record['time'], record['elevation'], linewidth=0.5)
         plt.xlim(mintime, maxtime)
         plt.ylim(-elev_range, elev_range)
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel('Elevation (m)')
         ax.set_xticks(np.arange(mintime, maxtime, 10), minor=True)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
-        ax.set_title(f'QC flags fired: {record["flags_fired"]}')
+        ax.text(0.01, 1, '\n'.join(info), va='top', ha='left', transform=ax.transAxes)
         fig.tight_layout()
         fig.savefig(os.path.join(outdir, f'fowd_qc_{i:0>4}.pdf'))
         plt.close(fig)
+
+        i += 1

@@ -17,7 +17,8 @@ from .constants import (
     GRAVITY, DENSITY, FREQUENCY_INTERVALS,
     QC_FLAG_A_THRESHOLD, QC_FLAG_B_THRESHOLD, QC_FLAG_C_THRESHOLD,
     QC_FLAG_D_THRESHOLD, QC_FLAG_E_THRESHOLD, QC_FLAG_F_THRESHOLD,
-    QC_FLAG_G_THRESHOLD, SPECTRUM_WINDOW_SIZE,
+    QC_FLAG_G_THRESHOLD,
+    SPECTRUM_WINDOW_SIZE,
 )
 
 
@@ -175,11 +176,6 @@ def compute_valid_data_ratio(elevation):
 
 
 def compute_spectral_density(elevation, sample_dt):
-    elevation[np.isnan(elevation)] = 0.
-    return scipy.signal.periodogram(elevation, 1 / sample_dt, detrend=False)
-
-
-def compute_spectral_density_smooth(elevation, sample_dt):
     elevation[np.isnan(elevation)] = 0.
     sample_dt = float(sample_dt)
     nperseg = round(SPECTRUM_WINDOW_SIZE / sample_dt)
@@ -399,9 +395,9 @@ def check_flag_d(elevation, wave_crests, wave_troughs, threshold=QC_FLAG_D_THRES
     return np.any(is_outlier(wave_crests)) or np.any(is_outlier(wave_troughs))
 
 
-def check_flag_e(times, threshold=QC_FLAG_E_THRESHOLD):
+def check_flag_e(time, threshold=QC_FLAG_E_THRESHOLD):
     """Check for records that are not equally spaced in time"""
-    sampling_dt = np.around(np.diff(times) / np.timedelta64(1, 's'), QC_FLAG_E_THRESHOLD)
+    sampling_dt = np.around(np.diff(time) / np.timedelta64(1, 's'), QC_FLAG_E_THRESHOLD)
     return len(np.unique(sampling_dt)) > 1
 
 
@@ -503,7 +499,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     excess_kurtosis = compute_excess_kurtosis(elevation)
     valid_data_ratio = compute_valid_data_ratio(z_displacement)
 
-    frequencies, wave_spectral_density = compute_spectral_density_smooth(elevation, sample_dt)
+    frequencies, wave_spectral_density = compute_spectral_density(elevation, sample_dt)
     zeroth_moment = compute_nth_moment(frequencies, wave_spectral_density, 0)
     first_moment = compute_nth_moment(frequencies, wave_spectral_density, 1)
     significant_wave_height_spectral = compute_significant_wave_height_spectral(zeroth_moment)

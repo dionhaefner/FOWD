@@ -81,20 +81,23 @@ def read_pickle_statefile(state_file):
         return pickle.load(f)
 
 
-def qc_format(flags_fired, rel_wave_height, t, z, wave_period, crest_height, trough_depth):
+def qc_format(filename, flags_fired, rel_wave_height, t, z, wave_period, crest_height,
+              trough_depth):
     time_offset = (t - t[0]) / np.timedelta64(1, 's')
 
     def format_float_arr(floatarr, precision):
         return [round(float(f), precision) for f in floatarr]
 
     return dict(
+        filename=filename,
         flags_fired=flags_fired,
         relative_wave_height=float(rel_wave_height),
+        start_date=str(t[0]),
         time=format_float_arr(time_offset, 4),
         elevation=format_float_arr(z, 4),
         wave_periods=format_float_arr(wave_period, 2),
         crest_heights=format_float_arr(crest_height, 2),
-        trough_depths=format_float_arr(trough_depth, 2)
+        trough_depths=format_float_arr(trough_depth, 2),
     )
 
 
@@ -286,7 +289,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
 
                 if write_qc:
                     with qc_lock, open(qc_outfile, 'a') as qcf:
-                        qc_info = qc_format(flags_fired, rel_waveheight, *qc_args)
+                        qc_info = qc_format(filename, flags_fired, rel_waveheight, *qc_args)
                         qcf.write(json.dumps(qc_info) + '\n')
 
             if flags_fired:
