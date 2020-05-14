@@ -102,14 +102,14 @@ def run_tests(out_folder):
 
     os.makedirs(out_folder, exist_ok=True)
 
-    click.echo('Running unit tests...')
+    click.echo('Running unit tests ...')
     exit_code = pytest.main([
         '-x',
         os.path.join(os.path.dirname(__file__), 'tests')
     ])
 
     click.echo('')
-    click.echo('Running sanity checks...')
+    click.echo('Running sanity checks ...')
     run_all(out_folder)
     click.echo(f'Sanity check results written to {out_folder}')
     click.echo(click.style('Make sure to check whether outputs are as expected.', bold=True))
@@ -127,7 +127,7 @@ def postprocess(qc_infile, out_folder):
     if out_folder is None:
         out_folder = tempfile.mkdtemp(prefix='fowd_qc_')
 
-    click.echo('Plotting sea states...')
+    click.echo('Plotting QC records ...')
     plot_qc(qc_infile, out_folder)
     click.echo(f'Results written to {out_folder}')
 

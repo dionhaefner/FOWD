@@ -438,7 +438,8 @@ COORD_ATTRS = dict(
 )
 
 
-def write_records(wave_records, filename, station_name, include_direction=False):
+def write_records(wave_records, filename, station_name, extra_metadata=None,
+                  include_direction=False):
     """Write given records to netCDF4"""
 
     dataset_metadata = dict(
@@ -460,8 +461,6 @@ def write_records(wave_records, filename, station_name, include_direction=False)
         creator_url='https://climate-geophysics.nbi.ku.dk/research/oceanography/',
         creator_email='dion.haefner@nbi.ku.dk',
         institution='Niels Bohr Institute, University of Copenhagen',
-        contributor_name='CDIP, CDBW/USACE',
-        contributor_role='station operation, station funding',
         geospatial_lat_units='degrees_north',
         geospatial_lat_resolution=1e-5,
         geospatial_lon_units='degrees_east',
@@ -473,15 +472,11 @@ def write_records(wave_records, filename, station_name, include_direction=False)
         time_coverage_end=str(wave_records['wave_end_time'].max()),
         source='insitu observations',
         license='These data may be redistributed and used without restriction.',
-        acknowledgment=(
-            'CDIP is supported by the U.S. Army Corps of Engineers (USACE) and the California '
-            'Department of Boating and Waterways (CDBW). The instrument that collected this '
-            'dataset was funded by CDBW/USACE and operated by CDIP.'
-        ),
-        comment=(
-            ''
-        ),
     )
+
+    if extra_metadata is not None:
+        for key, val in extra_metadata.items():
+            dataset_metadata[key] = ''.join([dataset_metadata.get(key, ''), str(val)])
 
     dimension_data = (
         # (name, dtype, data)

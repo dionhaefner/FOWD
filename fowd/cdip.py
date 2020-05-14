@@ -23,6 +23,17 @@ from .processing import compute_wave_records, read_pickle_outfile, read_pickle_s
 logger = logging.getLogger(__name__)
 
 
+EXTRA_METADATA = dict(
+    contributor_name='CDIP, CDBW/USACE',
+    contributor_role='station operation, station funding',
+    acknowledgment=(
+        'CDIP is supported by the U.S. Army Corps of Engineers (USACE) and the California '
+        'Department of Boating and Waterways (CDBW). The instrument that collected this '
+        'dataset was funded by CDBW/USACE and operated by CDIP.'
+    ),
+)
+
+
 # dataset-specific helpers
 
 def mask_invalid(data):
@@ -263,4 +274,8 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     out_file = os.path.join(out_folder, f'fowd_cdip_{station_id}.nc')
     logger.info('Writing output to %s', out_file)
     station_name = f'CDIP_{station_id}'
-    write_records(wave_records, out_file, station_name, include_direction=True)
+
+    write_records(
+        wave_records, out_file, station_name,
+        include_direction=True, extra_metadata=EXTRA_METADATA
+    )
