@@ -175,7 +175,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
     input_hash = get_md5_hash(meta_args['filepath'])
 
     if qc_outfile is not None:
-        qc_lock = filelock.FileLock(f'{qc_outfile}.lock')
+        qc_lock = filelock.FileLock(f'{qc_outfile}.lock', timeout=10)
 
     def handle_output(wave_records, wave_params_history, num_flags_fired):
         # convert records to NumPy arrays
