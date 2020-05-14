@@ -57,7 +57,7 @@ def plot_qc(qcfile, outdir, plot_flags=tuple('abdg'), plot_extreme=True):
         ax.spines['top'].set_visible(False)
         ax.text(0.01, 1, '\n'.join(info), va='top', ha='left', transform=ax.transAxes)
         fig.tight_layout()
-        fig.savefig(os.path.join(outdir, f'fowd_qc_{i:0>4}.pdf'))
+        fig.savefig(os.path.join(outdir, f'fowd_qc_{i:0>4}.pdf'), bbox_inches='tight')
         plt.close(fig)
 
         i += 1
