@@ -63,16 +63,13 @@ def read_pickled_record_chunks(input_file):
 
 def read_pickle_outfile(input_file):
     reader = read_pickled_record_chunks(input_file)
-    try:
-        out = next(reader)
-    except StopIteration:
-        return {}
 
+    records = collections.defaultdict(list)
     for row in reader:
-        assert set(out.keys()) == set(row.keys())
         for key, val in row.items():
-            out[key] = np.concatenate((out[key], val))
+            records[key].append(val)
 
+    out = {key: np.concatenate(val) for key, val in records.items()}
     return out
 
 
