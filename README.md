@@ -6,21 +6,25 @@
 After installing the Python code (e.g. via `pip install git+https://github.com/dionhaefner/FOWD.git`),
 you can use the command line tool `fowd` to create a FOWD dataset from a raw source.
 
-Currently, the best supported source is CDIP data:
+### CDIP
+
+Currently, the best supported source is [CDIP buoy data](https://cdip.ucsd.edu/):
 
 ```bash
 $ fowd process-cdip 433p1 -o fowd-cdip-out
 ```
 
-will process all data located in the `433p1` folder.
+will process all CDIP data located in the `433p1` folder.
 
-You can also process generic netCDF input files:
+### Generic inputs
+
+Use
 
 ```bash
 $ fowd process-generic infile.nc -o outdir
 ```
 
-Generic inputs must have the following structure:
+Generic inputs must be netCDF files with the following structure:
 
 ```
 Variables:
@@ -36,7 +40,7 @@ Attributes:
 
 ## Post-processing
 
-Data processing writes QC information in JSON format. You can visualize records in that QC file by using
+All data processing writes QC information in JSON format. You can visualize records in that QC file by using
 
 ```bash
 $ fowd postprocess qcfile.json
