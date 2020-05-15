@@ -26,10 +26,10 @@ def cli(ctx):
 
 
 @cli.command('process-cdip')
-@click.argument('CDIP_FOLDER')
+@click.argument('CDIP_FOLDER', type=click.Path(file_okay=False, readable=True, exists=True))
 @click.option(
     '-o', '--out-folder',
-    type=click.Path(file_okay=False, writable=True, exists=False),
+    type=click.Path(file_okay=False, writable=True),
     required=True,
 )
 @click.option('-n', '--nproc', default=None, type=int)
@@ -58,10 +58,10 @@ def process_cdip(cdip_folder, out_folder, nproc):
 
 
 @cli.command('process-generic')
-@click.argument('INFILE')
+@click.argument('INFILE', type=click.Path(dir_okay=False, readable=True, exists=True))
 @click.option(
     '-o', '--out-folder',
-    type=click.Path(file_okay=False, writable=True, exists=False),
+    type=click.Path(file_okay=False, writable=True),
     required=True,
 )
 @click.option(
@@ -92,7 +92,7 @@ def process_generic(infile, station_id, out_folder):
 
 
 @cli.command('run-tests')
-@click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True, exists=False))
+@click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True))
 def run_tests(out_folder):
     import pytest
     from .sanity.run_sanity_checks import run_all
@@ -120,7 +120,7 @@ def run_tests(out_folder):
 
 @cli.command('postprocess')
 @click.argument('QC_INFILE')
-@click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True, exists=False))
+@click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True))
 def postprocess(qc_infile, out_folder):
     from .postprocessing import plot_qc
 
