@@ -23,7 +23,7 @@ import xarray as xr
 
 from .constants import SSH_REFERENCE_INTERVAL
 from .output import write_records
-from .processing import compute_wave_records, read_pickle_outfile, read_pickle_statefile
+from .processing import compute_wave_records, read_pickle_outfile_chunks, read_pickle_statefile
 
 logger = logging.getLogger(__name__)
 
@@ -130,9 +130,12 @@ def process_file(input_file, out_folder, station_id=None):
         logger.warning('Processing skipped for file %s', input_file)
         return
 
-    wave_records = read_pickle_outfile(result_file)
+    num_waves = 0
+    for record_chunk in read_pickle_outfile_chunks(result_file):
+        if record_chunk:
+            num_waves += len(record_chunk['wave_id_local'])
 
-    if not wave_records:
+    if not num_waves:
         logger.warning('No data found in file %s', input_file)
         return
 
@@ -143,7 +146,7 @@ def process_file(input_file, out_folder, station_id=None):
     logger.info(
         'Processing finished for file %s', input_file
     )
-    logger.info('  Found %s waves', len(wave_records['wave_id_local']))
+    logger.info('  Found %s waves', num_waves)
     logger.info('  Number of QC flags fired:')
     for key, val in qc_flags_fired.items():
         logger.info(f'      {key} {val:>6d}')
@@ -151,6 +154,7 @@ def process_file(input_file, out_folder, station_id=None):
     logger.info('Processing done')
 
     # write output
+    result_generator = filter(None, read_pickle_outfile_chunks(result_file))
     out_file = os.path.join(out_folder, f'fowd_{station_id}.nc')
     logger.info('Writing output to %s', out_file)
-    write_records(wave_records, out_file, station_id)
+    write_records(result_generator, out_file, station_id)

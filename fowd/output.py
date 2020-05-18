@@ -438,10 +438,7 @@ COORD_ATTRS = dict(
 )
 
 
-def write_records(wave_records, filename, station_name, extra_metadata=None,
-                  include_direction=False):
-    """Write given records to netCDF4"""
-
+def get_dataset_metadata(station_name, start_time, end_time, extra_metadata=None):
     dataset_metadata = dict(
         id=f'FOWD_{station_name}',
         title=f'Free Ocean Wave Dataset (FOWD), station {station_name}',
@@ -468,8 +465,8 @@ def write_records(wave_records, filename, station_name, extra_metadata=None,
         geospatial_vertical_units='meters',
         geospatial_vertical_origin='sea surface height',
         geospatial_vertical_positive='up',
-        time_coverage_start=str(wave_records['wave_start_time'].min()),
-        time_coverage_end=str(wave_records['wave_end_time'].max()),
+        time_coverage_start=str(start_time),
+        time_coverage_end=str(end_time),
         source='insitu observations',
         license='These data may be redistributed and used without restriction.',
     )
@@ -478,10 +475,17 @@ def write_records(wave_records, filename, station_name, extra_metadata=None,
         for key, val in extra_metadata.items():
             dataset_metadata[key] = ''.join([dataset_metadata.get(key, ''), str(val)])
 
+    return dataset_metadata
+
+
+def write_records(wave_record_generator, filename, station_name, extra_metadata=None,
+                  include_direction=False):
+    """Write given records to netCDF4"""
+
     dimension_data = (
         # (name, dtype, data)
         ('meta_station_name', str, np.array([np.string_(station_name)])),
-        ('wave_id_local', 'int64', wave_records['wave_id_local']),
+        ('wave_id_local', 'int64', None),
         ('meta_frequency_band', 'uint8', np.arange(len(FREQUENCY_INTERVALS))),
     )
 
@@ -491,22 +495,23 @@ def write_records(wave_records, filename, station_name, extra_metadata=None,
         variables.update(DIRECTIONAL_VARIABLES)
 
     with netCDF4.Dataset(filename, 'w') as f:
-        # set global metadata
-        for attr, val in dataset_metadata.items():
-            setattr(f, attr, val)
-
-        # some variables have variable length
+        # create variable length dtype
         vlen_type = f.createVLType('float32', 'float_array')
 
         # create dimensions
         for dim, dtype, val in dimension_data:
-            f.createDimension(dim, len(val))
+            if val is None:
+                f.createDimension(dim, None)
+            else:
+                f.createDimension(dim, len(val))
+
             v = f.createVariable(dim, dtype, (dim,))
-            v[:] = val
+
+            if val is not None:
+                v[:] = val
 
         for name, meta in variables.items():
             # add meta_station_name as additional scalar dimension
-            data = wave_records[name][None, ...]
             dims = ('meta_station_name',) + meta['dims']
 
             # compression args
@@ -528,16 +533,45 @@ def write_records(wave_records, filename, station_name, extra_metadata=None,
             elif np.issubdtype(dtype, np.character):
                 extra_args.update(fill_value=FILL_VALUE_STR)
 
-            # convert datetimes to ms since time origin
-            if np.issubdtype(data.dtype, np.datetime64):
-                data = (data - np.datetime64(TIME_ORIGIN)) / np.timedelta64(1, 'ms')
-
+            # create variable
             v = f.createVariable(name, dtype, dims, **extra_args)
-            v[...] = data
 
             # attach attributes
             for attr, val in meta['attrs'].items():
                 setattr(v, attr, val)
+
+        # write data
+        start_time = end_time = None
+        current_wave_idx = 0
+        for chunk in wave_record_generator:
+            chunk_length = len(chunk['wave_id_local'])
+            chunk_slice = slice(
+                current_wave_idx,
+                current_wave_idx + chunk_length
+            )
+            current_wave_idx += chunk_length
+
+            for name, meta in variables.items():
+                v = f.variables[name]
+                data = chunk[name]
+
+                if name == 'wave_start_time':
+                    if start_time is None or np.min(data) < start_time:
+                        start_time = np.min(data)
+                elif name == 'wave_end_time':
+                    if end_time is None or np.max(data) > end_time:
+                        end_time = np.max(data)
+
+                # convert datetimes to ms since time origin
+                if np.issubdtype(data.dtype, np.datetime64):
+                    data = (data - np.datetime64(TIME_ORIGIN)) / np.timedelta64(1, 'ms')
+
+                v[0, chunk_slice, ...] = data
+
+        # set global metadata
+        dataset_metadata = get_dataset_metadata(station_name, start_time, end_time)
+        for attr, val in dataset_metadata.items():
+            setattr(f, attr, val)
 
         # add extra variables
         for name, meta in EXTRA_VARIABLES.items():

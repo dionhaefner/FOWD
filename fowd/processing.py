@@ -2,6 +2,8 @@ import os
 import json
 import pickle
 import logging
+import warnings
+import contextlib
 import collections
 import multiprocessing
 
@@ -49,28 +51,16 @@ def relative_pid():
         return 1
 
 
-def read_pickled_record_chunks(input_file):
+def read_pickle_outfile_chunks(pickle_file):
     """Read a sequence of pickled objects in the same file"""
-    if os.path.isfile(input_file):
-        with open(input_file, 'rb') as f:
+    if os.path.isfile(pickle_file):
+        with open(pickle_file, 'rb') as f:
             unpickler = pickle.Unpickler(f)
             while True:
                 try:
                     yield unpickler.load()
                 except EOFError:
                     break
-
-
-def read_pickle_outfile(input_file):
-    reader = read_pickled_record_chunks(input_file)
-
-    records = collections.defaultdict(list)
-    for row in reader:
-        for key, val in row.items():
-            records[key].append(val)
-
-    out = {key: np.concatenate(val) for key, val in records.items()}
-    return out
 
 
 def read_pickle_statefile(state_file):
@@ -132,7 +122,7 @@ def initialize_processing(record_file, state_file, input_hash):
         if not is_same_version(saved_state['processing_version'], this_version):
             raise RuntimeError('Processing version has changed')
 
-        for row in read_pickled_record_chunks(record_file):
+        for row in read_pickle_outfile_chunks(record_file):
             last_wave_record = row
 
         wave_params_history = saved_state['wave_params_history']
@@ -162,6 +152,27 @@ def initialize_processing(record_file, state_file, input_hash):
     )
 
 
+@contextlib.contextmanager
+def strict_filelock(target_file):
+    lockfile = f'{target_file}.lock'
+    if os.path.isfile(lockfile):
+        raise RuntimeError(
+            f'File {target_file} appears to be locked. '
+            'Make sure that no other process is accessing it, then remove manually.'
+        )
+
+    with open(lockfile, 'w'):
+        pass
+
+    try:
+        yield
+    finally:
+        try:
+            os.remove(lockfile)
+        except OSError:
+            warnings.warn(f'Could not remove lock file {lockfile}')
+
+
 def compute_wave_records(time, elevation, elevation_normalized, outfile, statefile,
                          meta_args, direction_args=None, qc_outfile=None):
     # pre-compute station metadata
@@ -172,6 +183,9 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
     input_hash = get_md5_hash(meta_args['filepath'])
 
     if qc_outfile is not None:
+        if not os.path.isfile(qc_outfile):
+            with open(qc_outfile, 'w'):
+                pass
         qc_lock = filelock.FileLock(f'{qc_outfile}.lock', timeout=10)
 
     def handle_output(wave_records, wave_params_history, num_flags_fired):
@@ -226,7 +240,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
         postfix=dict(waves_processed=str(local_wave_id)), initial=start_idx
     )
 
-    with tqdm.tqdm(**pbar_kwargs) as pbar:
+    with strict_filelock(outfile), tqdm.tqdm(**pbar_kwargs) as pbar:
         for wave_start, wave_stop in find_wave_indices(elevation_normalized, start_idx=start_idx):
             pbar.update(wave_stop - last_wave_stop)
             last_wave_stop = wave_stop

@@ -18,7 +18,7 @@ import xarray as xr
 
 from .constants import SSH_REFERENCE_INTERVAL
 from .output import write_records
-from .processing import compute_wave_records, read_pickle_outfile, read_pickle_statefile
+from .processing import compute_wave_records, read_pickle_outfile_chunks, read_pickle_statefile
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +181,7 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     nproc = min(nproc, num_inputs)
 
-    wave_records = [None for _ in range(num_inputs)]
+    result_files = [None for _ in range(num_inputs)]
 
     do_work = functools.partial(get_cdip_wave_records, out_folder=out_folder, qc_outfile=qc_outfile)
 
@@ -195,23 +195,22 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
             logger.warning('Processing skipped for file %s', filename)
             return
 
-        result_records = read_pickle_outfile(result_file)
+        num_waves = 0
+        for record_chunk in read_pickle_outfile_chunks(result_file):
+            if record_chunk:
+                num_waves += len(record_chunk['wave_id_local'])
 
-        if not result_records:
-            logger.warning('No data found in file %s', filename)
-            return
-
-        wave_records[i] = result_records
+        result_files[i] = result_file
 
         # get QC information
         qc_flags_fired = read_pickle_statefile(state_file)['num_flags_fired']
 
         # log progress
-        num_done = sum(record is not None for record in wave_records)
+        num_done = sum(res is not None for res in result_files)
         logger.info(
             'Processing finished for file %s (%s/%s done)', filename, num_done, num_inputs
         )
-        logger.info('  Found %s waves', len(wave_records[i]['wave_id_local']))
+        logger.info('  Found %s waves', num_waves)
         logger.info('  Number of QC flags fired:')
         for key, val in qc_flags_fired.items():
             logger.info(f'      {key} {val:>6d}')
@@ -254,28 +253,36 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     logger.info('Processing done')
 
-    # remove skipped files
-    wave_records = [subrecord for subrecord in wave_records if subrecord is not None]
-
-    if not wave_records:
+    if not any(result_files):
         logger.warn('Processed no files - no output to write')
         return
 
-    # concatenate subrecords
-    wave_records = {
-        key: np.concatenate([subrecord[key] for subrecord in wave_records])
-        for key in wave_records[0].keys()
-    }
-
-    # fix local id to be unique for the whole station
-    wave_records['wave_id_local'] = np.arange(len(wave_records['wave_id_local']))
-
     # write output
+    def generate_results():
+        current_wave_id = 0
+        for result_file in result_files:
+            if result_file is None:
+                continue
+
+            for record_chunk in read_pickle_outfile_chunks(result_file):
+                if not record_chunk:
+                    continue
+
+                # fix local id to be unique for the whole station
+                chunk_size = len(record_chunk['wave_id_local'])
+                record_chunk['wave_id_local'] = np.arange(
+                    current_wave_id, current_wave_id + chunk_size
+                )
+                current_wave_id += chunk_size
+
+                yield record_chunk
+
+    result_generator = generate_results()
     out_file = os.path.join(out_folder, f'fowd_cdip_{station_id}.nc')
     logger.info('Writing output to %s', out_file)
     station_name = f'CDIP_{station_id}'
 
     write_records(
-        wave_records, out_file, station_name,
+        result_generator, out_file, station_name,
         include_direction=True, extra_metadata=EXTRA_METADATA
     )
