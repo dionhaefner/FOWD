@@ -354,7 +354,7 @@ def check_flag_a(zero_crossing_periods, threshold=QC_FLAG_A_THRESHOLD):
 
 
 def check_flag_b(time, elevation, zero_crossing_periods, threshold=QC_FLAG_B_THRESHOLD):
-    """Check for unphysical gradients"""
+    """Check for extreme gradients"""
     if not np.any(np.isfinite(elevation)) or not np.any(np.isfinite(zero_crossing_periods)):
         return True
 
@@ -411,7 +411,8 @@ def check_flag_g(zero_crossing_periods, threshold=QC_FLAG_G_THRESHOLD):
     return len(zero_crossing_periods) < threshold
 
 
-def check_quality_flags(time, elevation, zero_crossing_periods, wave_crests, wave_troughs):
+def check_quality_flags(time, elevation, elevation_raw, zero_crossing_periods, wave_crests,
+                        wave_troughs):
     triggered_flags = []
 
     if check_flag_a(zero_crossing_periods):
@@ -420,7 +421,7 @@ def check_quality_flags(time, elevation, zero_crossing_periods, wave_crests, wav
     if check_flag_b(time, elevation, zero_crossing_periods):
         triggered_flags.append('b')
 
-    if check_flag_c(elevation):
+    if check_flag_c(elevation_raw):
         triggered_flags.append('c')
 
     if check_flag_d(elevation, wave_crests, wave_troughs):

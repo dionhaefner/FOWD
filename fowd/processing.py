@@ -68,7 +68,7 @@ def read_pickle_statefile(state_file):
         return pickle.load(f)
 
 
-def qc_format(filename, flags_fired, rel_wave_height, t, z, wave_period, crest_height,
+def qc_format(filename, flags_fired, rel_wave_height, t, z, z_raw, wave_period, crest_height,
               trough_depth):
     time_offset = (t - t[0]) / np.timedelta64(1, 's')
 
@@ -280,6 +280,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
             qc_args = (
                 time[sea_history_idx],
                 elevation_normalized[sea_history_idx],
+                elevation[sea_history_idx],
                 wave_params_history['zero_crossing_period'],
                 wave_params_history['crest_height'],
                 wave_params_history['trough_depth']
