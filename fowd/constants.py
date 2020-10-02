@@ -1,7 +1,7 @@
 """
 constants.py
 
-Constants relevant for processing
+Constants relevant for processing.
 """
 
 # length of SSH window to subtract before finding waves (in  minutes)

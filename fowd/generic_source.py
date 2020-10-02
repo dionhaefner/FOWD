@@ -1,7 +1,7 @@
 """
 generic_source.py
 
-Generic input file processing into FOWD datasets
+Generic input file processing into FOWD datasets.
 
 Input files are assumed to contain the following variables:
 - time

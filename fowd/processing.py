@@ -1,3 +1,9 @@
+"""
+processing.py
+
+Processing chain.
+"""
+
 import os
 import json
 import pickle

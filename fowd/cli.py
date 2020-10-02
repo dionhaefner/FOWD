@@ -4,12 +4,14 @@ cli.py
 Entry point for CLI.
 """
 
-import sys
 import os
+import sys
+import logging
 import datetime
 import tempfile
 
 import click
+import tqdm
 
 from . import __version__
 
@@ -118,10 +120,10 @@ def run_tests(out_folder):
         sys.exit(exit_code)
 
 
-@cli.command('postprocess')
-@click.argument('QC_INFILE')
+@cli.command('plot-qc')
+@click.argument('QC_INFILE', type=click.Path(dir_okay=False, readable=True))
 @click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True))
-def postprocess(qc_infile, out_folder):
+def plot_qc(qc_infile, out_folder):
     from .postprocessing import plot_qc
 
     if out_folder is None:
@@ -132,11 +134,47 @@ def postprocess(qc_infile, out_folder):
     click.echo(f'Results written to {out_folder}')
 
 
+@cli.command('postprocess-cdip')
+@click.argument('CDIP_FILES', type=click.Path(dir_okay=False, readable=True), nargs=-1)
+@click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True))
+def postprocess_cdip(cdip_files, out_folder):
+    import xarray as xr
+
+    from .postprocessing import filter_cdip
+    from .logs import setup_file_logger
+
+    os.makedirs(out_folder, exist_ok=True)
+
+    logfile = os.path.join(
+        out_folder,
+        f'fowd_cdip_postprocessing_{datetime.datetime.today():%Y%m%dT%H%M%S}.log'
+    )
+    setup_file_logger(logfile)
+    logger = logging.getLogger(__name__)
+
+    pbar = tqdm.tqdm(cdip_files, desc='Post-processing CDIP files')
+
+    for infile in pbar:
+        pbar.set_postfix(file=os.path.basename(infile))
+
+        filename, ext = os.path.splitext(os.path.basename(infile))
+        outfile = os.path.join(out_folder, f'{filename}_filtered.{ext}')
+
+        with xr.open_dataset(infile) as ds:
+            logger.info(f'Processing {infile}')
+            out_ds = filter_cdip(ds)
+            if out_ds is None:
+                continue
+
+            out_ds.to_netcdf(outfile)
+
+    click.echo(f'Results written to {out_folder}')
+
+
 def entrypoint():
     try:
         cli(obj={})
     except Exception:
-        import logging
         logger = logging.getLogger(__name__)
         logger.exception('Uncaught exception!', exc_info=True)
         raise

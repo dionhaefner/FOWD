@@ -1,10 +1,19 @@
+"""
+postprocessing.py
+
+Postprocessing of CDIP files and QC logs.
+"""
+
 import os
 import json
+import logging
 
 import numpy as np
 import tqdm
 
 from .constants import QC_EXTREME_WAVE_LOG_THRESHOLD
+
+logger = logging.getLogger(__name__)
 
 
 def plot_qc(qcfile, outdir, exclude_flags=tuple('cefg'), plot_extreme=True):
@@ -74,3 +83,90 @@ def plot_qc(qcfile, outdir, exclude_flags=tuple('cefg'), plot_extreme=True):
         plt.close(fig)
 
         i += 1
+
+
+DEPLOYMENT_BLACKLIST = {
+    '045p1': ['d01', 'd02', 'd03', 'd13', 'd15', 'd17', 'd19', 'd21'],
+    '094p1': ['d01', 'd02', 'd03', 'd04', 'd05'],
+    '096p1': ['d04'],
+    '100p1': ['d11'],
+    '106p1': ['d02'],
+    '109p1': ['d05', 'd06'],
+    '111p1': ['d06'],
+    '132p1': ['d01'],
+    '141p1': ['d03'],
+    '142p1': ['d02', 'd15', 'd18'],
+    '144p1': ['d01'],
+    '146p1': ['d01', 'd02'],
+    '158p1': ['d02', 'd04'],
+    '162p1': ['d07'],
+    '163p1': ['d01', 'd05'],
+    '167p1': ['d01'],
+    '172p1': ['d01'],
+    '177p1': ['*'],
+    '196p1': ['d04'],
+    '201p1': ['d03'],
+    '205p1': ['*'],
+    '206p1': ['*'],
+    '261p1': ['*'],
+    '430p1': ['d06'],
+    '431p1': ['d02'],
+}
+
+
+def apply_mask(ds, dim, mask):
+    mask = mask.isel(meta_station_name=0)
+
+    if mask.values.all():
+        return ds
+
+    idx = np.where(mask.values)[0]
+    return ds.isel(wave_id_local=idx)
+
+
+def remove_blacklisted(ds):
+    deployment_files = np.unique(ds['meta_source_file_name'])
+    whitelist = list(deployment_files)
+    for f in deployment_files:
+        for station, deployments in DEPLOYMENT_BLACKLIST.items():
+            if station in f:
+                if '*' in deployments or any(d in f for d in deployments):
+                    logger.info(f'Removing blacklisted deployment {f}')
+                    whitelist.remove(f)
+
+    mask = ds['meta_source_file_name'].isin(whitelist)
+    logger.info(f'Filtered {mask.size - mask.sum().values} blacklisted seas')
+    return apply_mask(ds, 'wave_id_local', mask)
+
+
+def filter_low_swh(ds):
+    mask = ds['sea_state_30m_significant_wave_height_spectral'] > 0.5
+    logger.info(f'Filtered {mask.size - mask.sum().values} low-ampltiude seas')
+    return apply_mask(ds, 'wave_id_local', mask)
+
+
+def filter_undersampled(ds):
+    nyquist_frequency = 0.5 * ds['meta_sampling_rate']
+    mean_frequency = 1. / ds['sea_state_30m_mean_period_spectral']
+    mask = 2.2 * mean_frequency < nyquist_frequency
+    logger.info(f'Filtered {mask.size - mask.sum().values} undersampled seas')
+    return apply_mask(ds, 'wave_id_local', mask)
+
+
+def filter_cdip(ds):
+    def is_empty(ds):
+        return len(ds['wave_id_local']) == 0
+
+    filters = (
+        remove_blacklisted,
+        filter_low_swh,
+        filter_undersampled,
+    )
+
+    for filter_fun in filters:
+        ds = filter_fun(ds)
+        if is_empty(ds):
+            logger.warning('No observations left in dataset - skipping')
+            return None
+
+    return ds

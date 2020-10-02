@@ -1,7 +1,7 @@
 """
 output.py
 
-Output metadata and I/O handling
+Output metadata and I/O handling.
 """
 
 import datetime

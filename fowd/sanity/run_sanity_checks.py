@@ -36,22 +36,28 @@ def run_sea_state(outdir):
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(4, 8))
 
         ax1.plot(case['frequencies'], case['wave_spectral_density'])
-        ax1.set_ylabel('Wave spectral density (m^2/Hz)')
+        ax1.set_ylabel('Wave spectral density (m$^2$/Hz)')
         ax1.set_xlabel('Frequency (Hz)')
         ax1.set_xlim(0, 1)
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
 
         ax2.plot(case['time'] / np.timedelta64(1, 's'), case['elevation'])
         ax2.set_xlabel('Time (s)')
         ax2.set_ylabel('Elevation (m)')
         ax2.set_xlim(0, 180)
         ax2.set_ylim(-2, 2)
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
 
         finite_mask = np.isfinite(case['elevation'])
         ax3.hist(case['elevation'][finite_mask], density=True)
         ax3.set_xlabel('Elevation (m)')
         ax3.set_ylabel('Density')
+        ax3.spines['top'].set_visible(False)
+        ax3.spines['right'].set_visible(False)
 
-        ax1.set_title(description)
+        ax1.set_title(description.replace('_', ' ').title())
         fig.tight_layout()
 
         fig.savefig(os.path.join(outdir, f'fowd_test_{description}_input.png'))
@@ -86,9 +92,11 @@ def run_directional(outdir):
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(4, 8))
 
         ax1.plot(case['frequencies'], case['spectral_energy_density'])
-        ax1.set_ylabel('Wave spectral density (m^2/Hz)')
+        ax1.set_ylabel('Wave spectral density (m$^2$/Hz)')
         ax1.set_xlabel('Frequency (Hz)')
         ax1.set_xlim(0, 1)
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
 
         for i, (i_start, i_end) in enumerate(FREQUENCY_INTERVALS, 1):
             ax1.fill_between([i_start, i_end], [i, i], [i-1, i-1], alpha=0.4)
@@ -98,13 +106,17 @@ def run_directional(outdir):
         ax2.set_ylabel('Directional spread (deg)')
         ax2.set_xlabel('Frequency (Hz)')
         ax2.set_xlim(0, 1)
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
 
         ax3.plot(case['frequencies'], case['mean_direction'])
         ax3.set_ylabel('Mean direction (deg)')
         ax3.set_xlabel('Frequency (Hz)')
         ax3.set_xlim(0, 1)
+        ax3.spines['top'].set_visible(False)
+        ax3.spines['right'].set_visible(False)
 
-        ax1.set_title(description)
+        ax1.set_title(description.replace('_', ' ').title())
         fig.tight_layout()
 
         fig.savefig(os.path.join(outdir, f'fowd_test_{description}_input.png'))

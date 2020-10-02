@@ -1,7 +1,7 @@
 """
 logs.py
 
-Logging utilities
+Logging utilities.
 """
 
 import logging

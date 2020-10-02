@@ -1,7 +1,7 @@
 """
 cdip.py
 
-CDIP input file processing into FOWD datasets
+CDIP input file processing into FOWD datasets.
 """
 
 import os

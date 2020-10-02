@@ -1,7 +1,7 @@
 """
 operators.py
 
-Operators for all physical quantities and metadata
+Operators for all physical quantities and metadata.
 """
 
 import math
@@ -11,7 +11,6 @@ import os
 import numpy as np
 import scipy.stats
 import scipy.signal
-import scipy.integrate
 
 from .constants import (
     GRAVITY, DENSITY, FREQUENCY_INTERVALS,
@@ -257,13 +256,6 @@ def compute_steepness(zeroth_moment, peak_wavenumber):
 def compute_bandwidth_narrowness(zeroth_moment, first_moment, frequencies, wave_spectral_density):
     second_moment = compute_nth_moment(frequencies, wave_spectral_density, 2)
     narrowness = np.sqrt(zeroth_moment * second_moment / first_moment ** 2 - 1)
-    return narrowness
-
-
-def compute_bandwidth_broadness(zeroth_moment, frequencies, wave_spectral_density):
-    fourth_moment = compute_nth_moment(frequencies, wave_spectral_density, 4)
-    second_moment = compute_nth_moment(frequencies, wave_spectral_density, 2)
-    narrowness = np.sqrt(1 - second_moment ** 2 / (zeroth_moment * fourth_moment))
     return narrowness
 
 
