@@ -146,8 +146,8 @@ def filter_low_swh(ds):
 
 
 def filter_undersampled(ds):
-    nyquist_frequency = 0.5 * ds['meta_sampling_rate']
-    mean_frequency = 1. / ds['sea_state_30m_mean_period_spectral']
+    nyquist_frequency = 0.5 * ds['meta_sampling_rate'].astype('float')
+    mean_frequency = 1. / ds['sea_state_30m_mean_period_spectral'].astype('float')
     mask = 2.2 * mean_frequency < nyquist_frequency
     logger.info(f'Filtered {mask.size - mask.sum().values} undersampled seas')
     return apply_mask(ds, 'wave_id_local', mask)

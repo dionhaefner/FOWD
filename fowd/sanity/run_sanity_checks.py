@@ -11,14 +11,24 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 def run_sea_state(outdir):
     from fowd.sanity.testcases import TEST_CASES
-    from fowd.operators import get_sea_parameters
+    from fowd.operators import get_wave_parameters, get_sea_parameters, find_wave_indices
 
     for description, case in TEST_CASES.items():
+        wave_heights, wave_periods = [], []
+
+        for wave_start, wave_stop in find_wave_indices(case['elevation']):
+            xyz_idx = slice(wave_start, wave_stop + 1)
+            wave_params = get_wave_parameters(
+                0, case['time'][xyz_idx], case['elevation'][xyz_idx], case['depth'], input_hash=''
+            )
+            wave_heights.append(wave_params['height'])
+            wave_periods.append(wave_params['zero_crossing_period'])
+
         sea_state = get_sea_parameters(
             time=case['time'],
             z_displacement=case['elevation'],
-            wave_heights=np.array([]),
-            wave_periods=np.array([]),
+            wave_heights=np.array(wave_heights),
+            wave_periods=np.array(wave_periods),
             water_depth=case['depth']
         )
 
@@ -30,8 +40,13 @@ def run_sea_state(outdir):
         results['spectral_parameters'] = case['spectral_params']
         results['estimated_sea_state'] = sea_state
 
+        # round-trip once through JSON to set float precision
+        results_formatted = json.loads(
+            json.dumps(results), parse_float=lambda x: round(float(x), 3)
+        )
+
         with open(os.path.join(outdir, f'fowd_test_{description}_output.json'), 'w') as f:
-            f.write(json.dumps(results, sort_keys=True, indent=4))
+            f.write(json.dumps(results_formatted, sort_keys=True, indent=4))
 
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(4, 8))
 
@@ -86,8 +101,13 @@ def run_directional(outdir):
         results['spectral_parameters'] = case['spectral_params']
         results['estimated_directional_parameters'] = directional_params
 
+        # round-trip once through JSON to set float precision
+        results_formatted = json.loads(
+            json.dumps(results), parse_float=lambda x: round(float(x), 3)
+        )
+
         with open(os.path.join(outdir, f'fowd_test_{description}_output.json'), 'w') as f:
-            f.write(json.dumps(results, sort_keys=True, indent=4))
+            f.write(json.dumps(results_formatted, sort_keys=True, indent=4))
 
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(4, 8))
 
