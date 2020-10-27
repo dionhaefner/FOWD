@@ -385,9 +385,6 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
 
             local_wave_id += 1
 
-            if local_wave_id > 10_000:
-                break
-
             # output and empty records in regular intervals
             if local_wave_id % 1000 == 0:
                 handle_output(wave_records, wave_params_history, num_flags_fired)
