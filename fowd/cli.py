@@ -6,6 +6,7 @@ Entry point for CLI.
 
 import os
 import sys
+import math
 import logging
 import datetime
 import tempfile
@@ -136,12 +137,14 @@ def plot_qc(qc_infile, out_folder):
 
 @cli.command('postprocess-cdip')
 @click.argument('CDIP_FILES', type=click.Path(dir_okay=False, readable=True), nargs=-1)
-@click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True))
+@click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True), required=True)
 def postprocess_cdip(cdip_files, out_folder):
     import xarray as xr
 
     from .postprocessing import filter_cdip
     from .logs import setup_file_logger
+    from .output import write_records
+    from .cdip import EXTRA_METADATA
 
     os.makedirs(out_folder, exist_ok=True)
 
@@ -158,15 +161,32 @@ def postprocess_cdip(cdip_files, out_folder):
         pbar.set_postfix(file=os.path.basename(infile))
 
         filename, ext = os.path.splitext(os.path.basename(infile))
-        outfile = os.path.join(out_folder, f'{filename}_filtered.{ext}')
+        outfile = os.path.join(out_folder, f'{filename}_filtered{ext}')
 
         with xr.open_dataset(infile) as ds:
             logger.info(f'Processing {infile}')
-            out_ds = filter_cdip(ds)
-            if out_ds is None:
-                continue
 
-            out_ds.to_netcdf(outfile)
+            out_metadata = EXTRA_METADATA.copy()
+            out_metadata['postprocessing'] = 'filtered'
+            out_metadata['postprocessing_input_uuid'] = ds.attrs['uuid']
+
+            num_filtered = {}
+            chunk_size = 10_000
+            record_generator = tqdm.tqdm(
+                filter_cdip(ds, num_filtered, chunk_size=chunk_size),
+                total=math.ceil(len(ds['wave_id_local']) / chunk_size),
+                leave=False
+            )
+
+            write_records(
+                record_generator,
+                outfile, str(ds.meta_station_name.values[0]),
+                extra_metadata=out_metadata, include_direction=True
+            )
+
+            logger.info(f'Filtered {num_filtered["blacklist"]} blacklisted seas')
+            logger.info(f'Filtered {num_filtered["low_swh"]} low-ampltiude seas')
+            logger.info(f'Filtered {num_filtered["undersampled"]} undersampled seas')
 
     click.echo(f'Results written to {out_folder}')
 

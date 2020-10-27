@@ -4,6 +4,7 @@ output.py
 Output metadata and I/O handling.
 """
 
+import uuid
 import datetime
 
 from .constants import FREQUENCY_INTERVALS, SEA_STATE_INTERVALS
@@ -45,14 +46,6 @@ DATASET_VARIABLES = dict(
     ),
 
     # wave data
-    wave_id_global=dict(
-        dims=('wave_id_local',),
-        dtype=str,
-        attrs=dict(
-            long_name='Unique identifier for any given wave',
-        )
-    ),
-
     wave_start_time=dict(
         dims=('wave_id_local',),
         dtype='int64',
@@ -229,6 +222,17 @@ for interval in SEA_STATE_INTERVALS:
                 units='meters',
             )
         ),
+        f'sea_state_{interval}m_rel_maximum_wave_height': dict(
+            dims=('wave_id_local',),
+            dtype='float32',
+            attrs=dict(
+                long_name=(
+                    'Relative maximum wave height estimated from wave history, '
+                    'relative to 30m spectral significant wave height'
+                ),
+                units='1',
+            )
+        ),
         f'sea_state_{interval}m_mean_period_direct': dict(
             dims=('wave_id_local',),
             dtype='float32',
@@ -330,11 +334,11 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_groupiness_spectral': dict(
+        f'sea_state_{interval}m_crest_trough_correlation': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Groupiness parameter (r) estimated from spectral density',
+                long_name='Crest-trough correlation parameter (r) estimated from spectral density',
                 units='1',
                 valid_min=0,
                 valid_max=1,
@@ -348,6 +352,16 @@ for interval in SEA_STATE_INTERVALS:
                 units='watts',
             )
         ),
+        f'sea_state_{interval}m_rel_energy_in_frequency_interval': dict(
+            dims=('wave_id_local', 'meta_frequency_band'),
+            dtype='float32',
+            attrs=dict(
+                long_name='Relative energy contained in frequency band',
+                units='1',
+                valid_min=0,
+                valid_max=1,
+            )
+        ),
     })
 
 # directional parameter metadata
@@ -357,8 +371,8 @@ DIRECTIONAL_VARIABLES = dict(
         dtype='int64',
         attrs=dict(
             long_name='Time at which directional quantities are sampled',
+            units=f'milliseconds since {TIME_ORIGIN}',
         ),
-        units=f'milliseconds since {TIME_ORIGIN}'
     ),
     direction_dominant_spread_in_frequency_interval=dict(
         dims=('wave_id_local', 'meta_frequency_band'),
@@ -424,8 +438,7 @@ COORD_ATTRS = dict(
     wave_id_local=dict(
         long_name='Incrementing wave ID for given station',
         comment=(
-            'This ID is not guaranteed to denote the same wave between data versions. '
-            'Use wave_id_global instead.'
+            'This ID is not guaranteed to denote the same wave between data versions.'
         ),
     ),
     meta_frequency_band=dict(
@@ -454,8 +467,9 @@ def get_dataset_metadata(station_name, start_time, end_time, extra_metadata=None
         processing_version=get_proc_version(),
         processing_url='https://github.com/dionhaefner/FOWD',
         date_created=f'{datetime.datetime.utcnow():%Y-%m-%dT%H:%M:%S.%f}',
+        uuid=str(uuid.uuid4()),
         creator_name='NBI Copenhagen',
-        creator_url='https://climate-geophysics.nbi.ku.dk/research/oceanography/',
+        creator_url='https://www.nbi.ku.dk/english/research/pice/oceanography/',
         creator_email='dion.haefner@nbi.ku.dk',
         institution='Niels Bohr Institute, University of Copenhagen',
         geospatial_lat_units='degrees_north',
@@ -544,6 +558,9 @@ def write_records(wave_record_generator, filename, station_name, extra_metadata=
         start_time = end_time = None
         current_wave_idx = 0
         for chunk in wave_record_generator:
+            if not chunk:
+                continue
+
             chunk_length = len(chunk['wave_id_local'])
             chunk_slice = slice(
                 current_wave_idx,
@@ -553,7 +570,7 @@ def write_records(wave_record_generator, filename, station_name, extra_metadata=
 
             for name, meta in variables.items():
                 v = f.variables[name]
-                data = chunk[name]
+                data = np.asarray(chunk[name])
 
                 if name == 'wave_start_time':
                     if start_time is None or np.min(data) < start_time:
@@ -569,7 +586,9 @@ def write_records(wave_record_generator, filename, station_name, extra_metadata=
                 v[0, chunk_slice, ...] = data
 
         # set global metadata
-        dataset_metadata = get_dataset_metadata(station_name, start_time, end_time)
+        dataset_metadata = get_dataset_metadata(
+            station_name, start_time, end_time, extra_metadata=extra_metadata
+        )
         for attr, val in dataset_metadata.items():
             setattr(f, attr, val)
 

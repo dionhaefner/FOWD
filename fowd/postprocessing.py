@@ -85,7 +85,7 @@ def plot_qc(qcfile, outdir, exclude_flags=tuple('cefg'), plot_extreme=True):
         i += 1
 
 
-DEPLOYMENT_BLACKLIST = {
+CDIP_DEPLOYMENT_BLACKLIST = {
     '045p1': ['d01', 'd02', 'd03', 'd13', 'd15', 'd17', 'd19', 'd21'],
     '094p1': ['d01', 'd02', 'd03', 'd04', 'd05'],
     '096p1': ['d04'],
@@ -128,45 +128,62 @@ def remove_blacklisted(ds):
     deployment_files = np.unique(ds['meta_source_file_name'])
     whitelist = list(deployment_files)
     for f in deployment_files:
-        for station, deployments in DEPLOYMENT_BLACKLIST.items():
+        for station, deployments in CDIP_DEPLOYMENT_BLACKLIST.items():
             if station in f:
                 if '*' in deployments or any(d in f for d in deployments):
                     logger.info(f'Removing blacklisted deployment {f}')
                     whitelist.remove(f)
 
     mask = ds['meta_source_file_name'].isin(whitelist)
-    logger.info(f'Filtered {mask.size - mask.sum().values} blacklisted seas')
-    return apply_mask(ds, 'wave_id_local', mask)
+    num_filtered = mask.size - mask.sum().values
+    return apply_mask(ds, 'wave_id_local', mask), num_filtered
 
 
 def filter_low_swh(ds):
     mask = ds['sea_state_30m_significant_wave_height_spectral'] > 0.5
-    logger.info(f'Filtered {mask.size - mask.sum().values} low-ampltiude seas')
-    return apply_mask(ds, 'wave_id_local', mask)
+    num_filtered = mask.size - mask.sum().values
+    return apply_mask(ds, 'wave_id_local', mask), num_filtered
 
 
 def filter_undersampled(ds):
-    nyquist_frequency = 0.5 * ds['meta_sampling_rate'].astype('float')
-    mean_frequency = 1. / ds['sea_state_30m_mean_period_spectral'].astype('float')
+    nyquist_frequency = 0.5 * ds['meta_sampling_rate'].astype('float32')
+    mean_frequency = 1. / ds['sea_state_30m_mean_period_spectral'].astype('float32')
     mask = 2.2 * mean_frequency < nyquist_frequency
-    logger.info(f'Filtered {mask.size - mask.sum().values} undersampled seas')
-    return apply_mask(ds, 'wave_id_local', mask)
+    num_filtered = mask.size - mask.sum().values
+    return apply_mask(ds, 'wave_id_local', mask), num_filtered
 
 
-def filter_cdip(ds):
-    def is_empty(ds):
-        return len(ds['wave_id_local']) == 0
+def filter_cdip(ds, num_filtered_dict=None, chunk_size=10_000):
+    if num_filtered_dict is None:
+        num_filtered_dict = {}
+    else:
+        num_filtered_dict.clear()
 
-    filters = (
-        remove_blacklisted,
-        filter_low_swh,
-        filter_undersampled,
-    )
+    num_records = len(ds['wave_id_local'])
 
-    for filter_fun in filters:
-        ds = filter_fun(ds)
-        if is_empty(ds):
-            logger.warning('No observations left in dataset - skipping')
-            return None
+    filters = {
+        'blacklist': remove_blacklisted,
+        'low_swh': filter_low_swh,
+        'undersampled': filter_undersampled,
+    }
 
-    return ds
+    num_filtered_dict.update({f: 0 for f in filters})
+
+    chunks = [
+        slice(i, min(i + chunk_size, num_records))
+        for i in range(0, num_records, chunk_size)
+        if i < num_records
+    ]
+
+    for chunk_slice in chunks:
+        dsi = ds.isel(wave_id_local=chunk_slice).load()
+
+        for name, filter_fun in filters.items():
+            dsi, n = filter_fun(dsi)
+            num_filtered_dict[name] += n
+
+            if len(dsi['wave_id_local']) == 0:
+                dsi = None
+                break
+
+        yield dsi
