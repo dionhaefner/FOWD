@@ -1,10 +1,18 @@
 # FOWD
-:ocean: A free ocean wave dataset, ready for your ML application.
+:ocean: A free ocean wave data processing framework, ready for your ML application.
+
+## Installation
+
+After downloading the repository, you can install FOWD and all dependencies (preferably into a virtual environment) via:
+
+```bash
+$ pip install -r requirements.txt
+$ pip install .
+```
 
 ## Usage
 
-After installing the Python code (e.g. via `pip install git+https://github.com/dionhaefner/FOWD.git`),
-you can use the command line tool `fowd` to create a FOWD dataset from a raw source.
+After installing the Python code, you can use the command line tool `fowd` to create a FOWD dataset from a raw source.
 
 ### CDIP
 
@@ -38,12 +46,12 @@ Attributes:
 - latitude
 ```
 
-## Post-processing
+## QC plots
 
 All data processing writes QC information in JSON format. You can visualize records in that QC file by using
 
 ```bash
-$ fowd postprocess qcfile.json
+$ fowd plot-qc qcfile.json
 ```
 
 ## Testing

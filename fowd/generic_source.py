@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # dataset-specific helpers
 
 def add_surface_elevation(data):
-    """Add surface elevation variable to xarray Dataset"""
+    """Add surface elevation variable to xarray Dataset."""
 
     dt = float(1 / data.sampling_rate)
     window_size = int(60 * SSH_REFERENCE_INTERVAL / dt)
@@ -53,7 +53,7 @@ class InvalidFile(Exception):
 
 
 def get_input_data(filepath):
-    """Read input file as xarray Dataset"""
+    """Read input file as xarray Dataset."""
 
     allowed_vars = [
         'time', 'displacement'
@@ -80,7 +80,7 @@ def get_input_data(filepath):
 #
 
 def get_wave_records(filepath, out_folder, qc_outfile=None):
-    """Process a single file and write results to pickle file"""
+    """Process a single file and write results to pickle file."""
     filename = os.path.basename(filepath)
     outfile = os.path.join(out_folder, f'{filename}.waves.pkl')
     statefile = os.path.join(out_folder, f'{filename}.state.pkl')
@@ -113,7 +113,7 @@ def get_wave_records(filepath, out_folder, qc_outfile=None):
 
 
 def process_file(input_file, out_folder, station_id=None):
-    """Process a single generic input file"""
+    """Process a single generic input file."""
 
     if station_id is None:
         station_id = os.path.splitext(os.path.basename(input_file))[0]

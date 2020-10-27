@@ -8,6 +8,7 @@ import logging
 
 
 def setup_file_logger(logfile):
+    """Set up basic file logger."""
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s | %(message)s',

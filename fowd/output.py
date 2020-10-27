@@ -452,14 +452,15 @@ COORD_ATTRS = dict(
 
 
 def get_dataset_metadata(station_name, start_time, end_time, extra_metadata=None):
+    """Get all metadata attributes related to the whole dataset."""
     dataset_metadata = dict(
         id=f'FOWD_{station_name}',
-        title=f'Free Ocean Wave Dataset (FOWD), station {station_name}',
+        title=f'Free Ocean Wave Data (FOWD), station {station_name}',
         summary=(
             'A catalogue of ocean waves and associated sea states, derived from in-situ '
             'measurement data.'
         ),
-        project='Free Ocean Wave Dataset (FOWD)',
+        project='Free Ocean Wave Data (FOWD)',
         keywords=(
             'EARTH SCIENCE, OCEANS, OCEAN WAVES, GRAVITY WAVES, WIND WAVES, '
             'SIGNIFICANT WAVE HEIGHT, WAVE FREQUENCY, WAVE PERIOD, WAVE SPECTRA'
@@ -492,9 +493,12 @@ def get_dataset_metadata(station_name, start_time, end_time, extra_metadata=None
     return dataset_metadata
 
 
-def write_records(wave_record_generator, filename, station_name, extra_metadata=None,
+def write_records(wave_record_iterator, filename, station_name, extra_metadata=None,
                   include_direction=False):
-    """Write given records to netCDF4"""
+    """Write given wave records in FOWD's netCDF4 output format.
+
+    First argument is an iterable of chunks of wave records.
+    """
 
     dimension_data = (
         # (name, dtype, data)
@@ -557,7 +561,7 @@ def write_records(wave_record_generator, filename, station_name, extra_metadata=
         # write data
         start_time = end_time = None
         current_wave_idx = 0
-        for chunk in wave_record_generator:
+        for chunk in wave_record_iterator:
             if not chunk:
                 continue
 

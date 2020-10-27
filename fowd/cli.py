@@ -21,7 +21,7 @@ from . import __version__
 @click.version_option(version=__version__)
 @click.pass_context
 def cli(ctx):
-    """The command line interface for the Free Ocean Wave Dataset (FOWD) creation toolkit."""
+    """The command line interface for the Free Ocean Wave Data (FOWD) processing toolkit."""
 
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
@@ -35,9 +35,12 @@ def cli(ctx):
     type=click.Path(file_okay=False, writable=True),
     required=True,
 )
-@click.option('-n', '--nproc', default=None, type=int)
+@click.option(
+    '-n', '--nproc', default=None, type=int,
+    help='Maximum number of parallel processes [default: number of CPU cores]'
+)
 def process_cdip(cdip_folder, out_folder, nproc):
-    """Process all deployments of a CDIP station into one FOWD file."""
+    """Process all deployments of a CDIP station into one FOWD output file."""
     from .cdip import process_cdip_station
     from .logs import setup_file_logger
 
@@ -72,6 +75,7 @@ def process_cdip(cdip_folder, out_folder, nproc):
     help='Station ID to use in outputs [default: use input file name]'
 )
 def process_generic(infile, station_id, out_folder):
+    """Process a generic netCDF input file into a FOWD output file."""
     from .generic_source import process_file
     from .logs import setup_file_logger
 
@@ -97,6 +101,7 @@ def process_generic(infile, station_id, out_folder):
 @cli.command('run-tests')
 @click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True))
 def run_tests(out_folder):
+    """Run unit tests and sanity checks."""
     import pytest
     from .sanity.run_sanity_checks import run_all
 
@@ -125,6 +130,7 @@ def run_tests(out_folder):
 @click.argument('QC_INFILE', type=click.Path(dir_okay=False, readable=True))
 @click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True))
 def plot_qc(qc_infile, out_folder):
+    """Generate plots from QC log files."""
     from .postprocessing import plot_qc
 
     if out_folder is None:
@@ -139,6 +145,7 @@ def plot_qc(qc_infile, out_folder):
 @click.argument('CDIP_FILES', type=click.Path(dir_okay=False, readable=True), nargs=-1)
 @click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True), required=True)
 def postprocess_cdip(cdip_files, out_folder):
+    """Filter some invalid measurements from FOWD CDIP output."""
     import xarray as xr
 
     from .postprocessing import filter_cdip

@@ -1,7 +1,7 @@
 """
 processing.py
 
-Processing chain.
+Main processing chain.
 """
 
 import os
@@ -49,7 +49,7 @@ WAVE_PARAMS_KEYS = [key for key, _ in WAVE_PARAMS_DTYPE]
 # utilities
 
 def relative_pid():
-    """Get relative PID of a pool process"""
+    """Get relative PID of a pool process."""
     try:
         return multiprocessing.current_process()._identity[0]
     except IndexError:
@@ -58,7 +58,7 @@ def relative_pid():
 
 
 def read_pickle_outfile_chunks(pickle_file):
-    """Read a sequence of pickled objects in the same file"""
+    """Read a sequence of pickled objects in the same file."""
     if os.path.isfile(pickle_file):
         with open(pickle_file, 'rb') as f:
             unpickler = pickle.Unpickler(f)
@@ -70,12 +70,14 @@ def read_pickle_outfile_chunks(pickle_file):
 
 
 def read_pickle_statefile(state_file):
+    """Read pickled state file."""
     with open(state_file, 'rb') as f:
         return pickle.load(f)
 
 
 def qc_format(filename, flags_fired, rel_wave_height, t, z, z_raw, wave_period, crest_height,
               trough_depth):
+    """Format QC records for JSON output."""
     time_offset = (t - t[0]) / np.timedelta64(1, 's')
 
     def format_float_arr(floatarr, precision):
@@ -95,6 +97,10 @@ def qc_format(filename, flags_fired, rel_wave_height, t, z, z_raw, wave_period, 
 
 
 def is_same_version(version1, version2):
+    """Check whether two versions are equal.
+
+    This is the case if minor and major version are the same (e.g. 2.4.1 and 2.4.3).
+    """
     split_v1 = version1.split('.')
     split_v2 = version2.split('.')
 
@@ -107,7 +113,7 @@ def is_same_version(version1, version2):
 
 
 def initialize_processing(record_file, state_file, input_hash):
-    """Parse temporary files to re-start processing if possible"""
+    """Parse temporary files to re-start processing if possible."""
     default_params = dict(
         last_wave_id=None,
         last_wave_end_time=None,
@@ -160,6 +166,7 @@ def initialize_processing(record_file, state_file, input_hash):
 
 @contextlib.contextmanager
 def strict_filelock(target_file):
+    """File-based lock that throws an exception if lock is already in place."""
     lockfile = f'{target_file}.lock'
     if os.path.isfile(lockfile):
         raise RuntimeError(
@@ -181,6 +188,7 @@ def strict_filelock(target_file):
 
 def compute_wave_records(time, elevation, elevation_normalized, outfile, statefile,
                          meta_args, direction_args=None, qc_outfile=None):
+    """Compute all wave records in given input data, and dump results to pickle files."""
     # pre-compute station metadata
     filename = os.path.basename(meta_args['filepath'])
     water_depth = meta_args['water_depth']
@@ -376,6 +384,9 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                 wave_records[var].append(this_wave_records[var])
 
             local_wave_id += 1
+
+            if local_wave_id > 10_000:
+                break
 
             # output and empty records in regular intervals
             if local_wave_id % 1000 == 0:

@@ -1,3 +1,9 @@
+"""
+tests/test_quality_flags.py
+
+Unit tests for QC flags.
+"""
+
 from fowd import operators
 
 import numpy as np

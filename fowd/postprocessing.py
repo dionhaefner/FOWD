@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def plot_qc(qcfile, outdir, exclude_flags=tuple('cefg'), plot_extreme=True):
+    """Write plots of QC records from given log file to output folder."""
     import matplotlib as mpl
     mpl.use('Agg')
     import matplotlib.pyplot as plt
@@ -85,6 +86,7 @@ def plot_qc(qcfile, outdir, exclude_flags=tuple('cefg'), plot_extreme=True):
         i += 1
 
 
+# all blacklisted CDIP deployments that failed visual inspection
 CDIP_DEPLOYMENT_BLACKLIST = {
     '045p1': ['d01', 'd02', 'd03', 'd13', 'd15', 'd17', 'd19', 'd21'],
     '094p1': ['d01', 'd02', 'd03', 'd04', 'd05'],
@@ -115,6 +117,7 @@ CDIP_DEPLOYMENT_BLACKLIST = {
 
 
 def apply_mask(ds, dim, mask):
+    """Apply boolean mask along dimension on xarray Dataset."""
     mask = mask.isel(meta_station_name=0)
 
     if mask.values.all():
@@ -125,6 +128,7 @@ def apply_mask(ds, dim, mask):
 
 
 def remove_blacklisted(ds):
+    """Remove all records from blacklisted deployments."""
     deployment_files = np.unique(ds['meta_source_file_name'])
     whitelist = list(deployment_files)
     for f in deployment_files:
@@ -140,12 +144,14 @@ def remove_blacklisted(ds):
 
 
 def filter_low_swh(ds):
+    """Remove all records with very low significant wave heights."""
     mask = ds['sea_state_30m_significant_wave_height_spectral'] > 0.5
     num_filtered = mask.size - mask.sum().values
     return apply_mask(ds, 'wave_id_local', mask), num_filtered
 
 
 def filter_undersampled(ds):
+    """Remove all records that are undersampled."""
     nyquist_frequency = 0.5 * ds['meta_sampling_rate'].astype('float32')
     mean_frequency = 1. / ds['sea_state_30m_mean_period_spectral'].astype('float32')
     mask = 2.2 * mean_frequency < nyquist_frequency
@@ -154,6 +160,10 @@ def filter_undersampled(ds):
 
 
 def filter_cdip(ds, num_filtered_dict=None, chunk_size=10_000):
+    """Run all filters on given xarray Dataset.
+
+    This is a generator that applies filters in chunks to avoid loading whole files.
+    """
     if num_filtered_dict is None:
         num_filtered_dict = {}
     else:

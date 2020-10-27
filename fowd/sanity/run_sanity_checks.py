@@ -1,3 +1,9 @@
+"""
+sanity/run_sanity_checks.py
+
+Execute and write results of sanity checks.
+"""
+
 import os
 import json
 
@@ -90,7 +96,7 @@ def run_directional(outdir):
             frequencies=case['frequencies'],
             directional_spread=case['directional_spread'],
             mean_direction=case['mean_direction'],
-            spectral_energy_density=case['spectral_energy_density'],
+            wave_spectral_density=case['wave_spectral_density'],
             peak_wave_direction=case['peak_wave_direction']
         )
 
@@ -111,7 +117,7 @@ def run_directional(outdir):
 
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(4, 8))
 
-        ax1.plot(case['frequencies'], case['spectral_energy_density'])
+        ax1.plot(case['frequencies'], case['wave_spectral_density'])
         ax1.set_ylabel('Wave spectral density (m$^2$/Hz)')
         ax1.set_xlabel('Frequency (Hz)')
         ax1.set_xlim(0, 1)

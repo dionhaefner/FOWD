@@ -1,3 +1,9 @@
+"""
+sanity/testcases.py
+
+Definition of sanity check test cases.
+"""
+
 import numpy as np
 from scipy.special import gamma
 
@@ -54,7 +60,7 @@ def directional_test_case(spectral_params):
         frequencies=f,
         directional_spread=directional_spread,
         mean_direction=mean_direction,
-        spectral_energy_density=spectrum,
+        wave_spectral_density=spectrum,
         peak_wave_direction=None,
         spectral_params=spectral_params
     )
@@ -95,11 +101,11 @@ times = np.arange(0, 1800, 1. / 1.28)
 
 ochi_params = {
     'swell_dominated': dict(
-        swh_wind=2,
+        swh_wind=1,
         peak_period_wind=5,
         shape_wind=1,
         swh_swell=2,
-        peak_period_swell=15,
+        peak_period_swell=16,
         shape_swell=1
     ),
     'narrow_swell': dict(
@@ -107,7 +113,7 @@ ochi_params = {
         peak_period_wind=5,
         shape_wind=.33,
         swh_swell=2,
-        peak_period_swell=15,
+        peak_period_swell=16,
         shape_swell=3
     ),
     'wide_swell': dict(
@@ -115,7 +121,7 @@ ochi_params = {
         peak_period_wind=5,
         shape_wind=.33,
         swh_swell=2,
-        peak_period_swell=15,
+        peak_period_swell=16,
         shape_swell=0.33
     ),
     'wind_dominated': dict(
@@ -123,7 +129,7 @@ ochi_params = {
         peak_period_wind=5,
         shape_wind=1,
         swh_swell=1,
-        peak_period_swell=15,
+        peak_period_swell=16,
         shape_swell=1
     ),
 }

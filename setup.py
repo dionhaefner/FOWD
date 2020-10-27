@@ -11,7 +11,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     # metadata
     name='fowd',
-    description='A free ocean wave dataset, ready for your ML application',
+    description='A free ocean wave data processing framework, ready for your ML application.',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/dionhaefner/FOWD',

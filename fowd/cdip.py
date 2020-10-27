@@ -37,7 +37,7 @@ EXTRA_METADATA = dict(
 # dataset-specific helpers
 
 def mask_invalid(data):
-    """Mask all data that has error flags set"""
+    """Mask all data that has error flags set."""
 
     xyz_invalid = (data['xyzFlagPrimary'] > 2) | (data['xyzFlagSecondary'] > 0)
     data['xyzZDisplacement'][xyz_invalid] = np.nan
@@ -55,7 +55,7 @@ def mask_invalid(data):
 
 
 def add_surface_elevation(data):
-    """Add surface elevation variable to CDIP xarray Dataset"""
+    """Add surface elevation variable to CDIP xarray Dataset."""
 
     dt = float(1 / data.xyzSampleRate.values)
     window_size = int(60 * SSH_REFERENCE_INTERVAL / dt)
@@ -77,7 +77,7 @@ class InvalidCDIPFile(Exception):
 
 
 def get_cdip_data(filepath):
-    """Read CDIP input file as xarray Dataset"""
+    """Read CDIP input file as xarray Dataset."""
 
     allowed_vars = [
         'xyzStartTime', 'xyzZDisplacement', 'xyzSampleRate',
@@ -114,7 +114,7 @@ def get_cdip_data(filepath):
 #
 
 def get_cdip_wave_records(filepath, out_folder, qc_outfile=None):
-    """Process a single file and write results to pickle file"""
+    """Process a single file and write results to pickle file."""
     filename = os.path.basename(filepath)
     outfile = os.path.join(out_folder, f'{filename}.waves.pkl')
     statefile = os.path.join(out_folder, f'{filename}.state.pkl')
@@ -159,7 +159,7 @@ def get_cdip_wave_records(filepath, out_folder, qc_outfile=None):
 
 
 def process_cdip_station(station_folder, out_folder, nproc=None):
-    """Process all deployments of a single CDIP station
+    """Process all deployments of a single CDIP station.
 
     Supports processing in parallel (one process per input file).
     """
