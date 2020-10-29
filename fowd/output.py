@@ -69,7 +69,7 @@ DATASET_VARIABLES = dict(
         dims=('wave_id_local',),
         dtype='float32',
         attrs=dict(
-            long_name='Wave zero-crossing period relative to 30m SSH',
+            long_name='Wave zero-crossing period relative to 30m sea surface elevation',
             units='seconds',
             comment='Zero-crossings determined through linear interpolation',
         )
@@ -79,7 +79,7 @@ DATASET_VARIABLES = dict(
         dims=('wave_id_local',),
         dtype='float32',
         attrs=dict(
-            long_name='Wave zero-crossing wavelength relative to 30m SSH',
+            long_name='Wave zero-crossing wavelength relative to 30m sea surface elevation',
             units='meters',
         )
     ),
@@ -88,7 +88,7 @@ DATASET_VARIABLES = dict(
         dims=('wave_id_local',),
         dtype='vlen',
         attrs=dict(
-            long_name='Raw surface elevation relative to 30m SSH',
+            long_name='Raw surface elevation relative to 30m sea surface elevation',
             units='meters',
             comment='Spacing in time as given by meta_sampling_rate',
         )
@@ -98,7 +98,7 @@ DATASET_VARIABLES = dict(
         dims=('wave_id_local',),
         dtype='float32',
         attrs=dict(
-            long_name='Wave crest height relative to 30m SSH',
+            long_name='Wave crest height relative to 30m sea surface elevation',
             units='meters',
         )
     ),
@@ -107,7 +107,7 @@ DATASET_VARIABLES = dict(
         dims=('wave_id_local',),
         dtype='float32',
         attrs=dict(
-            long_name='Wave trough depth relative to 30m SSH',
+            long_name='Wave trough depth relative to 30m sea surface elevation',
             units='meters',
         )
     ),
@@ -116,7 +116,7 @@ DATASET_VARIABLES = dict(
         dims=('wave_id_local',),
         dtype='float32',
         attrs=dict(
-            long_name='Absolute wave height relative to 30m SSH',
+            long_name='Absolute wave height relative to 30m sea surface elevation',
             units='meters',
         )
     ),
@@ -227,8 +227,8 @@ for interval in SEA_STATE_INTERVALS:
             dtype='float32',
             attrs=dict(
                 long_name=(
-                    'Relative maximum wave height estimated from wave history, '
-                    'relative to 30m spectral significant wave height'
+                    'Maximum wave height estimated from wave history '
+                    'relative to spectral significant wave height'
                 ),
                 units='1',
             )
@@ -455,12 +455,12 @@ def get_dataset_metadata(station_name, start_time, end_time, extra_metadata=None
     """Get all metadata attributes related to the whole dataset."""
     dataset_metadata = dict(
         id=f'FOWD_{station_name}',
-        title=f'Free Ocean Wave Data (FOWD), station {station_name}',
+        title=f'Free Ocean Wave Dataset (FOWD), station {station_name}',
         summary=(
             'A catalogue of ocean waves and associated sea states, derived from in-situ '
             'measurement data.'
         ),
-        project='Free Ocean Wave Data (FOWD)',
+        project='Free Ocean Wave Dataset (FOWD)',
         keywords=(
             'EARTH SCIENCE, OCEANS, OCEAN WAVES, GRAVITY WAVES, WIND WAVES, '
             'SIGNIFICANT WAVE HEIGHT, WAVE FREQUENCY, WAVE PERIOD, WAVE SPECTRA'
