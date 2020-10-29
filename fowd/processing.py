@@ -134,8 +134,13 @@ def initialize_processing(record_file, state_file, input_hash):
         if not is_same_version(saved_state['processing_version'], this_version):
             raise RuntimeError('Processing version has changed')
 
+        last_wave_record = None
         for row in read_pickle_outfile_chunks(record_file):
             last_wave_record = row
+
+        if last_wave_record is None:
+            # no records in record file
+            return default_params
 
         wave_params_history = saved_state['wave_params_history']
         num_flags_fired = saved_state['num_flags_fired']
