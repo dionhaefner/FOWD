@@ -1,5 +1,5 @@
 # FOWD
-:ocean: A free ocean wave dataset and processing framework, ready for your ML application. 
+:ocean: Processing framework for FOWD, a free ocean wave dataset, ready for your ML application. 
 
 ## Installation
 
