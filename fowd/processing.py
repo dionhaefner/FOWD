@@ -213,8 +213,13 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                 wave_records_np[key] = np.asarray(val)
 
         # dump results to files
-        with open(outfile, 'ab') as f:
-            pickle.dump(wave_records_np, f)
+        if not os.path.exists(outfile):
+            with open(outfile, 'wb'):
+                pass
+
+        if wave_records_np:
+            with open(outfile, 'ab') as f:
+                pickle.dump(wave_records_np, f)
 
         with open(statefile, 'wb') as f:
             pickle.dump({
@@ -255,6 +260,9 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
     )
 
     with strict_filelock(outfile), tqdm.tqdm(**pbar_kwargs) as pbar:
+        # initialize output files
+        handle_output(wave_records, wave_params_history, num_flags_fired)
+
         for wave_start, wave_stop in find_wave_indices(elevation_normalized, start_idx=start_idx):
             pbar.update(wave_stop - last_wave_stop)
             last_wave_stop = wave_stop
