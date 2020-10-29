@@ -21,7 +21,7 @@ from . import __version__
 @click.version_option(version=__version__)
 @click.pass_context
 def cli(ctx):
-    """The command line interface for the Free Ocean Wave Data (FOWD) processing toolkit."""
+    """The command line interface for the Free Ocean Wave Dataset (FOWD) processing toolkit."""
 
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
