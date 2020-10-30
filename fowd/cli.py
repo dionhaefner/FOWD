@@ -148,7 +148,7 @@ def postprocess_cdip(cdip_files, out_folder):
     """Filter some invalid measurements from FOWD CDIP output."""
     import xarray as xr
 
-    from .postprocessing import filter_cdip
+    from .postprocessing import filter_cdip, CDIP_DEPLOYMENT_BLACKLIST
     from .logs import setup_file_logger
     from .output import write_records
     from .cdip import EXTRA_METADATA
@@ -170,15 +170,24 @@ def postprocess_cdip(cdip_files, out_folder):
         filename, ext = os.path.splitext(os.path.basename(infile))
         outfile = os.path.join(out_folder, f'{filename}_filtered{ext}')
 
-        with xr.open_dataset(infile) as ds:
+        with xr.open_dataset(infile, cache=False) as ds:
             logger.info(f'Processing {infile}')
+
+            station_name = str(ds.meta_station_name.values[0])
+
+            assert station_name.startswith('CDIP_')
+            if CDIP_DEPLOYMENT_BLACKLIST.get(station_name[5:]) == '*':
+                logger.info('All deployments blacklisted, skipping')
+                continue
 
             out_metadata = EXTRA_METADATA.copy()
             out_metadata['postprocessing'] = 'filtered'
             out_metadata['postprocessing_input_uuid'] = ds.attrs['uuid']
 
             num_filtered = {}
-            chunk_size = 10_000
+            # xarray comes to a crawl for smaller chunks for some reason
+            chunk_size = 1_000_000
+
             record_generator = tqdm.tqdm(
                 filter_cdip(ds, num_filtered, chunk_size=chunk_size),
                 total=math.ceil(len(ds['wave_id_local']) / chunk_size),
@@ -187,7 +196,7 @@ def postprocess_cdip(cdip_files, out_folder):
 
             write_records(
                 record_generator,
-                outfile, str(ds.meta_station_name.values[0]),
+                outfile, station_name,
                 extra_metadata=out_metadata, include_direction=True
             )
 

@@ -6,14 +6,11 @@ Postprocessing of CDIP files and QC logs.
 
 import os
 import json
-import logging
 
 import numpy as np
 import tqdm
 
 from .constants import QC_EXTREME_WAVE_LOG_THRESHOLD
-
-logger = logging.getLogger(__name__)
 
 
 def plot_qc(qcfile, outdir, exclude_flags=tuple('cefg'), plot_extreme=True):
@@ -105,12 +102,12 @@ CDIP_DEPLOYMENT_BLACKLIST = {
     '163p1': ['d01', 'd05'],
     '167p1': ['d01'],
     '172p1': ['d01'],
-    '177p1': ['*'],
+    '177p1': '*',
     '196p1': ['d04'],
     '201p1': ['d03'],
-    '205p1': ['*'],
-    '206p1': ['*'],
-    '261p1': ['*'],
+    '205p1': '*',
+    '206p1': '*',
+    '261p1': '*',
     '430p1': ['d06'],
     '431p1': ['d02'],
 }
@@ -118,8 +115,6 @@ CDIP_DEPLOYMENT_BLACKLIST = {
 
 def apply_mask(ds, dim, mask):
     """Apply boolean mask along dimension on xarray Dataset."""
-    mask = mask.isel(meta_station_name=0)
-
     if mask.values.all():
         return ds
 
@@ -134,29 +129,22 @@ def remove_blacklisted(ds):
     for f in deployment_files:
         for station, deployments in CDIP_DEPLOYMENT_BLACKLIST.items():
             if station in f:
-                if '*' in deployments or any(d in f for d in deployments):
-                    logger.info(f'Removing blacklisted deployment {f}')
+                if deployments == '*' or any(d in f for d in deployments):
                     whitelist.remove(f)
 
-    mask = ds['meta_source_file_name'].isin(whitelist)
-    num_filtered = mask.size - mask.sum().values
-    return apply_mask(ds, 'wave_id_local', mask), num_filtered
+    return ds['meta_source_file_name'].isin(whitelist)
 
 
 def filter_low_swh(ds):
     """Remove all records with very low significant wave heights."""
-    mask = ds['sea_state_30m_significant_wave_height_spectral'] > 0.5
-    num_filtered = mask.size - mask.sum().values
-    return apply_mask(ds, 'wave_id_local', mask), num_filtered
+    return ds['sea_state_30m_significant_wave_height_spectral'] > 0.5
 
 
 def filter_undersampled(ds):
     """Remove all records that are undersampled."""
-    nyquist_frequency = 0.5 * ds['meta_sampling_rate'].astype('float32')
-    mean_frequency = 1. / ds['sea_state_30m_mean_period_spectral'].astype('float32')
-    mask = 2.2 * mean_frequency < nyquist_frequency
-    num_filtered = mask.size - mask.sum().values
-    return apply_mask(ds, 'wave_id_local', mask), num_filtered
+    nyquist_frequency = 0.5 * ds['meta_sampling_rate']
+    mean_frequency = 1. / (ds['sea_state_30m_mean_period_spectral'] / np.timedelta64(1, 's'))
+    return 2.2 * mean_frequency < nyquist_frequency
 
 
 def filter_cdip(ds, num_filtered_dict=None, chunk_size=10_000):
@@ -186,11 +174,12 @@ def filter_cdip(ds, num_filtered_dict=None, chunk_size=10_000):
     ]
 
     for chunk_slice in chunks:
-        dsi = ds.isel(wave_id_local=chunk_slice).load()
+        dsi = ds.isel(meta_station_name=0, wave_id_local=chunk_slice).load()
 
         for name, filter_fun in filters.items():
-            dsi, n = filter_fun(dsi)
-            num_filtered_dict[name] += n
+            mask = filter_fun(dsi)
+            dsi = apply_mask(dsi, 'wave_id_local', mask)
+            num_filtered_dict[name] += mask.size - mask.sum().values
 
             if len(dsi['wave_id_local']) == 0:
                 dsi = None

@@ -523,7 +523,13 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
             else:
                 f.createDimension(dim, len(val))
 
-            v = f.createVariable(dim, dtype, (dim,))
+            extra_args = dict(
+                zlib=True,
+                fletcher32=True,
+                chunksizes=[CHUNKSIZES[dim]]
+            )
+
+            v = f.createVariable(dim, dtype, (dim,), **extra_args)
 
             if val is not None:
                 v[:] = val
@@ -532,9 +538,9 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
             # add meta_station_name as additional scalar dimension
             dims = ('meta_station_name',) + meta['dims']
 
-            # compression args
             extra_args = dict(
-                zlib=True, fletcher32=True,
+                zlib=True,
+                fletcher32=True,
                 chunksizes=[CHUNKSIZES[dim] for dim in dims]
             )
 
@@ -572,6 +578,8 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
             )
             current_wave_idx += chunk_length
 
+            f.variables['wave_id_local'][chunk_slice] = chunk['wave_id_local']
+
             for name, meta in variables.items():
                 v = f.variables[name]
                 data = np.asarray(chunk[name])
@@ -598,7 +606,15 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
 
         # add extra variables
         for name, meta in EXTRA_VARIABLES.items():
-            v = f.createVariable(name, meta['data'].dtype, meta['dims'])
+            extra_args = dict(
+                zlib=True,
+                fletcher32=True,
+                chunksizes=[CHUNKSIZES[dim] for dim in meta['dims']]
+            )
+            v = f.createVariable(
+                name, meta['data'].dtype, meta['dims'],
+                **extra_args
+            )
             v[:] = meta['data']
             for attr, val in meta['attrs'].items():
                 setattr(v, attr, val)

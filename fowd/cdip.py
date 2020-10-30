@@ -260,7 +260,7 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     # write output
     def generate_results():
         current_wave_id = 0
-        for result_file in result_files:
+        for result_file in tqdm.tqdm(result_files, desc='Writing output'):
             if result_file is None:
                 continue
 
