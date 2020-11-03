@@ -157,4 +157,4 @@ def process_file(input_file, out_folder, station_id=None):
     result_generator = filter(None, read_pickle_outfile_chunks(result_file))
     out_file = os.path.join(out_folder, f'fowd_{station_id}.nc')
     logger.info('Writing output to %s', out_file)
-    write_records(result_generator, out_file, station_id)
+    write_records(result_generator, out_file, station_id, num_records=num_waves)

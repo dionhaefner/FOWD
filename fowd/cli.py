@@ -174,6 +174,7 @@ def postprocess_cdip(cdip_files, out_folder):
             logger.info(f'Processing {infile}')
 
             station_name = str(ds.meta_station_name.values[0])
+            num_records = len(ds['wave_id_local'])
 
             assert station_name.startswith('CDIP_')
             if CDIP_DEPLOYMENT_BLACKLIST.get(station_name[5:]) == '*':
@@ -190,14 +191,16 @@ def postprocess_cdip(cdip_files, out_folder):
 
             record_generator = tqdm.tqdm(
                 filter_cdip(ds, num_filtered, chunk_size=chunk_size),
-                total=math.ceil(len(ds['wave_id_local']) / chunk_size),
+                total=math.ceil(num_records / chunk_size),
                 leave=False
             )
 
             write_records(
                 record_generator,
                 outfile, station_name,
-                extra_metadata=out_metadata, include_direction=True
+                num_records=num_records,
+                extra_metadata=out_metadata,
+                include_direction=True
             )
 
             logger.info(f'Filtered {num_filtered["blacklist"]} blacklisted seas')

@@ -184,6 +184,7 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     result_files = [None for _ in range(num_inputs)]
 
     do_work = functools.partial(get_cdip_wave_records, out_folder=out_folder, qc_outfile=qc_outfile)
+    num_waves_total = 0
 
     def handle_result(i, result, pbar):
         pbar.update(1)
@@ -195,10 +196,13 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
             logger.warning('Processing skipped for file %s', filename)
             return
 
+        nonlocal num_waves_total
         num_waves = 0
         for record_chunk in read_pickle_outfile_chunks(result_file):
             if record_chunk:
                 num_waves += len(record_chunk['wave_id_local'])
+
+        num_waves_total += num_waves
 
         result_files[i] = result_file
 
@@ -260,22 +264,27 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     # write output
     def generate_results():
         current_wave_id = 0
-        for result_file in tqdm.tqdm(result_files, desc='Writing output'):
-            if result_file is None:
-                continue
+        pbar = tqdm.tqdm(total=num_waves_total, desc='Writing output')
 
-            for record_chunk in read_pickle_outfile_chunks(result_file):
-                if not record_chunk:
+        with pbar:
+            for result_file in result_files:
+                if result_file is None:
                     continue
 
-                # fix local id to be unique for the whole station
-                chunk_size = len(record_chunk['wave_id_local'])
-                record_chunk['wave_id_local'] = np.arange(
-                    current_wave_id, current_wave_id + chunk_size
-                )
-                current_wave_id += chunk_size
+                for record_chunk in read_pickle_outfile_chunks(result_file):
+                    if not record_chunk:
+                        continue
 
-                yield record_chunk
+                    # fix local id to be unique for the whole station
+                    chunk_size = len(record_chunk['wave_id_local'])
+                    record_chunk['wave_id_local'] = np.arange(
+                        current_wave_id, current_wave_id + chunk_size
+                    )
+                    current_wave_id += chunk_size
+
+                    yield record_chunk
+
+                    pbar.update(chunk_size)
 
     result_generator = generate_results()
     out_file = os.path.join(out_folder, f'fowd_cdip_{station_id}.nc')
@@ -284,5 +293,6 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
 
     write_records(
         result_generator, out_file, station_name,
-        include_direction=True, extra_metadata=EXTRA_METADATA
+        include_direction=True, extra_metadata=EXTRA_METADATA,
+        num_records=num_waves_total
     )
