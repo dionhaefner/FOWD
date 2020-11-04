@@ -21,6 +21,13 @@ TIME_ORIGIN = '1980-01-01'
 FILL_VALUE_NUMBER = -9999
 FILL_VALUE_STR = 'MISSING'
 
+# chunk sizes to use for each dimension
+CHUNKSIZES = {
+    'meta_station_name': 1,
+    'wave_id_local': 10_000,
+    'meta_frequency_band': len(FREQUENCY_INTERVALS),
+}
+
 DATASET_VARIABLES = dict(
     # metadata
     meta_source_file_name=dict(
@@ -487,21 +494,16 @@ def get_dataset_metadata(station_name, start_time, end_time, extra_metadata=None
 
 
 def write_records(wave_record_iterator, filename, station_name, extra_metadata=None,
-                  include_direction=False, num_records=None):
+                  include_direction=False):
     """Write given wave records in FOWD's netCDF4 output format.
 
     First argument is an iterable of chunks of wave records.
     """
 
-    if num_records is None:
-        wave_id_dim = None
-    else:
-        wave_id_dim = np.arange(num_records)
-
     dimension_data = (
         # (name, dtype, data)
         ('meta_station_name', str, np.array([np.string_(station_name)])),
-        ('wave_id_local', 'int64', wave_id_dim),
+        ('wave_id_local', 'int64', None),
         ('meta_frequency_band', 'uint8', np.arange(len(FREQUENCY_INTERVALS))),
     )
 
@@ -521,7 +523,13 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
             else:
                 f.createDimension(dim, len(val))
 
-            v = f.createVariable(dim, dtype, (dim,))
+            extra_args = dict(
+                zlib=True,
+                fletcher32=True,
+                chunksizes=[CHUNKSIZES[dim]]
+            )
+
+            v = f.createVariable(dim, dtype, (dim,), **extra_args)
 
             if val is not None:
                 v[:] = val
@@ -530,6 +538,12 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
             # add meta_station_name as additional scalar dimension
             dims = ('meta_station_name',) + meta['dims']
 
+            extra_args = dict(
+                zlib=True,
+                fletcher32=True,
+                chunksizes=[CHUNKSIZES[dim] for dim in dims]
+            )
+
             # determine dtype
             if meta['dtype'] == 'vlen':
                 dtype = vlen_type
@@ -537,7 +551,6 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
                 dtype = meta['dtype']
 
             # add correct fill value
-            extra_args = {}
             is_number = np.issubdtype(dtype, np.floating) or np.issubdtype(dtype, np.integer)
             if is_number and dtype is not vlen_type:
                 extra_args.update(fill_value=FILL_VALUE_NUMBER)
@@ -597,7 +610,12 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
 
         # add extra variables
         for name, meta in EXTRA_VARIABLES.items():
-            v = f.createVariable(name, meta['data'].dtype, meta['dims'])
+            extra_args = dict(
+                zlib=True,
+                fletcher32=True,
+                chunksizes=[CHUNKSIZES[dim] for dim in meta['dims']]
+            )
+            v = f.createVariable(name, meta['data'].dtype, meta['dims'], **extra_args)
             v[:] = meta['data']
             for attr, val in meta['attrs'].items():
                 setattr(v, attr, val)

@@ -294,5 +294,4 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     write_records(
         result_generator, out_file, station_name,
         include_direction=True, extra_metadata=EXTRA_METADATA,
-        num_records=num_waves_total
     )

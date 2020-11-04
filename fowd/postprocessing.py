@@ -136,15 +136,15 @@ def remove_blacklisted(ds):
 
 
 def filter_low_swh(ds):
-    """Remove all records with very low significant wave heights."""
-    return ds['sea_state_30m_significant_wave_height_spectral'] > 0.5
+    """Remove all records with low significant wave heights."""
+    return ds['sea_state_30m_significant_wave_height_spectral'] > 1.0
 
 
 def filter_undersampled(ds):
     """Remove all records that are undersampled."""
     nyquist_frequency = 0.5 * ds['meta_sampling_rate']
     mean_frequency = 1. / (ds['sea_state_30m_mean_period_spectral'] / np.timedelta64(1, 's'))
-    return 2.2 * mean_frequency < nyquist_frequency
+    return 3.2 * mean_frequency < nyquist_frequency
 
 
 def filter_cdip(ds, num_filtered_dict=None, chunk_size=10_000):

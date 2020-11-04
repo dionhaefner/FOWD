@@ -198,7 +198,6 @@ def postprocess_cdip(cdip_files, out_folder):
             write_records(
                 record_generator,
                 outfile, station_name,
-                num_records=num_records,
                 extra_metadata=out_metadata,
                 include_direction=True
             )
