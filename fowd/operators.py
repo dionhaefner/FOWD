@@ -193,7 +193,12 @@ def compute_excess_kurtosis(elevation):
     return np.nanmean(elevation ** 4) / np.nanmean(elevation ** 2) ** 2 - 3
 
 
-def compute_medcouple(elevation):
+def compute_robust_skewness(elevation):
+    """Compute medcouple (robust skewness) from surface elevation"""
+    return robustats.medcouple(elevation)
+
+
+def compute_robust_kurtosis(elevation):
     """Compute left and right medcouple (tail weight estimate) from surface elevation"""
     elevation = elevation[np.isfinite(elevation)]
     median = np.median(elevation)
@@ -586,7 +591,8 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     mean_period_direct = compute_mean_wave_period(wave_periods)
     skewness = compute_skewness(elevation)
     excess_kurtosis = compute_excess_kurtosis(elevation)
-    left_medcouple, right_medcouple = compute_medcouple(elevation)
+    medcouple = compute_robust_skewness(elevation)
+    left_medcouple, right_medcouple = compute_robust_kurtosis(elevation)
     valid_data_ratio = compute_valid_data_ratio(z_displacement)
 
     frequencies, wave_spectral_density = compute_spectral_density(elevation, sample_dt)
@@ -653,8 +659,9 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'rel_maximum_wave_height': rel_maximum_wave_height,
         'skewness': skewness,
         'kurtosis': excess_kurtosis,
-        'left_medcouple': left_medcouple,
-        'right_medcouple': right_medcouple,
+        'robust_skewness': medcouple,
+        'robust_kurtosis_left': left_medcouple,
+        'robust_kurtosis_right': right_medcouple,
         'valid_data_ratio': valid_data_ratio,
 
         'peak_wave_period': peak_period,

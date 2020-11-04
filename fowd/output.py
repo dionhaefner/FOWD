@@ -265,19 +265,27 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_left_medcouple': dict(
+        f'sea_state_{interval}m_robust_skewness': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Left medcouple of sea surface elevation',
+                long_name='Medcouple (robust skewness) of sea surface elevation',
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_right_medcouple': dict(
+        f'sea_state_{interval}m_robust_kurtosis_left': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Left medcouple of sea surface elevation',
+                long_name='Left medcouple (tail weight measure) of sea surface elevation',
+                units='1',
+            )
+        ),
+        f'sea_state_{interval}m_robust_kurtosis_right': dict(
+            dims=('wave_id_local',),
+            dtype='float32',
+            attrs=dict(
+                long_name='Right medcouple (tail weight measure) of sea surface elevation',
                 units='1',
             )
         ),
