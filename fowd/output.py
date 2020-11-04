@@ -265,6 +265,22 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
+        f'sea_state_{interval}m_left_medcouple': dict(
+            dims=('wave_id_local',),
+            dtype='float32',
+            attrs=dict(
+                long_name='Left medcouple of sea surface elevation',
+                units='1',
+            )
+        ),
+        f'sea_state_{interval}m_right_medcouple': dict(
+            dims=('wave_id_local',),
+            dtype='float32',
+            attrs=dict(
+                long_name='Left medcouple of sea surface elevation',
+                units='1',
+            )
+        ),
         f'sea_state_{interval}m_valid_data_ratio': dict(
             dims=('wave_id_local',),
             dtype='float32',
