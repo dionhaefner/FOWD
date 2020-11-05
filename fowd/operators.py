@@ -194,15 +194,16 @@ def compute_excess_kurtosis(elevation):
 
 
 def compute_robust_skewness(elevation):
-    """Compute medcouple (robust skewness) from surface elevation"""
+    """Compute medcouple (robust skewness) from surface elevation."""
+    elevation = elevation[np.isfinite(elevation)]
     return robustats.medcouple(elevation)
 
 
 def compute_robust_kurtosis(elevation):
-    """Compute left and right medcouple (tail weight estimate) from surface elevation"""
+    """Compute left and right medcouple (tail weight estimate) from surface elevation."""
     elevation = elevation[np.isfinite(elevation)]
     median = np.median(elevation)
-    rmc = robustats.medcouple(elevation[elevation > median])
+    rmc = robustats.medcouple(elevation[elevation >= median])
     lmc = -robustats.medcouple(elevation[elevation <= median])
     return lmc, rmc
 
