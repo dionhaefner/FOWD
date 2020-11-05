@@ -260,157 +260,168 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
     pbar_kwargs = dict(
         total=len(elevation), unit_scale=True, position=(relative_pid() - 1),
         dynamic_ncols=True, desc=filename,
-        mininterval=0.25, maxinterval=1, smoothing=0.1,
+        mininterval=1, smoothing=0.1,
         postfix=dict(waves_processed=str(local_wave_id)), initial=start_idx
     )
 
-    with strict_filelock(outfile), tqdm.tqdm(**pbar_kwargs) as pbar:
-        # initialize output files
-        handle_output(wave_records, wave_params_history, num_flags_fired)
+    # from pyinstrument import Profiler
 
-        for wave_start, wave_stop in find_wave_indices(elevation_normalized, start_idx=start_idx):
-            pbar.update(wave_stop - last_wave_stop)
-            last_wave_stop = wave_stop
+    # profiler = Profiler()
+    # profiler.start()
 
-            this_wave_records = {}
-
-            # compute wave parameters
-            xyz_idx = slice(wave_start, wave_stop + 1)
-            wave_params = get_wave_parameters(
-                local_wave_id, time[xyz_idx], elevation_normalized[xyz_idx], water_depth, input_hash
-            )
-            this_wave_records.update(
-                add_prefix(wave_params, 'wave')
-            )
-
-            # roll over wave parameter history and append record for current wave
-            rollover_mask = (
-                (wave_params['start_time'] - wave_params_history['start_time']) < history_length
-            )
-
-            new_history_row = np.array(
-                [tuple(wave_params[key] for key in WAVE_PARAMS_KEYS)],
-                dtype=WAVE_PARAMS_DTYPE
-            )
-
-            wave_params_history = np.concatenate([
-                wave_params_history[rollover_mask],
-                new_history_row
-            ])
-
-            # run QC
-            sea_history_idx = slice(
-                get_time_index(wave_params['start_time'] - history_length, time),
-                wave_stop + 1
-            )
-
-            qc_args = (
-                time[sea_history_idx],
-                elevation_normalized[sea_history_idx],
-                elevation[sea_history_idx],
-                wave_params_history['zero_crossing_period'],
-                wave_params_history['crest_height'],
-                wave_params_history['trough_depth']
-            )
-
-            flags_fired = check_quality_flags(*qc_args)
-
-            if qc_outfile is not None:
-                # write significant waves to QC dataset
-                significant_waveheight = compute_significant_wave_height(
-                    wave_params_history['height']
-                )
-                rel_waveheight = wave_params['height'] / significant_waveheight
-
-                above_fail_threshold = rel_waveheight > QC_FAIL_LOG_THRESHOLD
-                above_extreme_threshold = rel_waveheight > QC_EXTREME_WAVE_LOG_THRESHOLD
-                write_qc = above_extreme_threshold or (flags_fired and above_fail_threshold)
-
-                if write_qc:
-                    with qc_lock, open(qc_outfile, 'a') as qcf:
-                        qc_info = qc_format(filename, flags_fired, rel_waveheight, *qc_args)
-                        qcf.write(json.dumps(qc_info) + '\n')
-
-            if flags_fired:
-                for flag in flags_fired:
-                    num_flags_fired[flag] += 1
-                # skip further processing for this wave
-                continue
-
-            # add metadata
-            this_wave_records.update(
-                add_prefix(station_meta, 'meta')
-            )
-
-            # compute sea state parameters
-            for sea_state_period in SEA_STATE_INTERVALS:
-                offset = np.timedelta64(sea_state_period, 'm')
-
-                sea_state_idx = slice(
-                    get_time_index(wave_params['start_time'] - offset, time),
-                    wave_start
-                )
-
-                wave_param_timediff = wave_params['start_time'] - wave_params_history['start_time']
-                wave_param_mask = np.logical_and(
-                    # do not look into the future
-                    wave_param_timediff > np.timedelta64(1, 'ms'),
-                    # look at most sea_state_period minutes into the past
-                    wave_param_timediff < offset
-                )
-
-                sea_state_params = get_sea_parameters(
-                    time[sea_state_idx],
-                    elevation[sea_state_idx],
-                    wave_params_history['height'][wave_param_mask],
-                    wave_params_history['zero_crossing_period'][wave_param_mask],
-                    water_depth
-                )
-
-                this_wave_records.update(
-                    add_prefix(sea_state_params, f'sea_state_{sea_state_period}m')
-                )
-
-            # compute directional quantities
-            if direction_args is not None:
-                directional_time_idx = get_time_index(
-                    wave_params['start_time'], direction_args['direction_time'], nearest=True
-                )
-
-                if directional_time_idx != last_directional_time_idx:
-                    # only re-compute if index has changed
-                    directional_params = get_directional_parameters(
-                        direction_args['direction_time'][directional_time_idx],
-                        direction_args['direction_frequencies'],
-                        direction_args['direction_spread'][directional_time_idx],
-                        direction_args['direction_mean_direction'][directional_time_idx],
-                        direction_args['direction_energy_density'][directional_time_idx],
-                        direction_args['direction_peak_direction'][directional_time_idx]
-                    )
-                    last_directional_time_idx = directional_time_idx
-
-                this_wave_records.update(
-                    add_prefix(directional_params, 'direction')
-                )
-
-            for var in this_wave_records.keys():
-                wave_records[var].append(this_wave_records[var])
-
-            local_wave_id += 1
-
-            # output and empty records in regular intervals
-            if local_wave_id % 1000 == 0:
-                handle_output(wave_records, wave_params_history, num_flags_fired)
-                wave_records.clear()
-                pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
-
-        else:
-            # all waves processed
-            pbar.update(len(elevation) - last_wave_stop)
-
-        if wave_records:
+    try:
+        with strict_filelock(outfile), tqdm.tqdm(**pbar_kwargs) as pbar:
+            # initialize output files
             handle_output(wave_records, wave_params_history, num_flags_fired)
 
-        pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
+            for wave_start, wave_stop in find_wave_indices(elevation_normalized, start_idx=start_idx):
+                pbar.update(wave_stop - last_wave_stop)
+                last_wave_stop = wave_stop
+
+                this_wave_records = {}
+
+                # compute wave parameters
+                xyz_idx = slice(wave_start, wave_stop + 1)
+                wave_params = get_wave_parameters(
+                    local_wave_id, time[xyz_idx], elevation_normalized[xyz_idx], water_depth, input_hash
+                )
+                this_wave_records.update(
+                    add_prefix(wave_params, 'wave')
+                )
+
+                # roll over wave parameter history and append record for current wave
+                rollover_mask = (
+                    (wave_params['start_time'] - wave_params_history['start_time']) < history_length
+                )
+
+                new_history_row = np.array(
+                    [tuple(wave_params[key] for key in WAVE_PARAMS_KEYS)],
+                    dtype=WAVE_PARAMS_DTYPE
+                )
+
+                wave_params_history = np.concatenate([
+                    wave_params_history[rollover_mask],
+                    new_history_row
+                ])
+
+                # run QC
+                sea_history_idx = slice(
+                    get_time_index(wave_params['start_time'] - history_length, time),
+                    wave_stop + 1
+                )
+
+                qc_args = (
+                    time[sea_history_idx],
+                    elevation_normalized[sea_history_idx],
+                    elevation[sea_history_idx],
+                    wave_params_history['zero_crossing_period'],
+                    wave_params_history['crest_height'],
+                    wave_params_history['trough_depth']
+                )
+
+                flags_fired = check_quality_flags(*qc_args)
+
+                if qc_outfile is not None:
+                    # write significant waves to QC dataset
+                    significant_waveheight = compute_significant_wave_height(
+                        wave_params_history['height']
+                    )
+                    rel_waveheight = wave_params['height'] / significant_waveheight
+
+                    above_fail_threshold = rel_waveheight > QC_FAIL_LOG_THRESHOLD
+                    above_extreme_threshold = rel_waveheight > QC_EXTREME_WAVE_LOG_THRESHOLD
+                    write_qc = above_extreme_threshold or (flags_fired and above_fail_threshold)
+
+                    if write_qc:
+                        with qc_lock, open(qc_outfile, 'a') as qcf:
+                            qc_info = qc_format(filename, flags_fired, rel_waveheight, *qc_args)
+                            qcf.write(json.dumps(qc_info) + '\n')
+
+                if flags_fired:
+                    for flag in flags_fired:
+                        num_flags_fired[flag] += 1
+                    # skip further processing for this wave
+                    continue
+
+                # add metadata
+                this_wave_records.update(
+                    add_prefix(station_meta, 'meta')
+                )
+
+                # compute sea state parameters
+                for sea_state_period in SEA_STATE_INTERVALS:
+                    offset = np.timedelta64(sea_state_period, 'm')
+
+                    sea_state_idx = slice(
+                        get_time_index(wave_params['start_time'] - offset, time),
+                        wave_start
+                    )
+
+                    wave_param_timediff = wave_params['start_time'] - wave_params_history['start_time']
+                    wave_param_mask = np.logical_and(
+                        # do not look into the future
+                        wave_param_timediff > np.timedelta64(1, 'ms'),
+                        # look at most sea_state_period minutes into the past
+                        wave_param_timediff < offset
+                    )
+
+                    sea_state_params = get_sea_parameters(
+                        time[sea_state_idx],
+                        elevation[sea_state_idx],
+                        wave_params_history['height'][wave_param_mask],
+                        wave_params_history['zero_crossing_period'][wave_param_mask],
+                        water_depth
+                    )
+
+                    this_wave_records.update(
+                        add_prefix(sea_state_params, f'sea_state_{sea_state_period}m')
+                    )
+
+                # compute directional quantities
+                if direction_args is not None:
+                    directional_time_idx = get_time_index(
+                        wave_params['start_time'], direction_args['direction_time'], nearest=True
+                    )
+
+                    if directional_time_idx != last_directional_time_idx:
+                        # only re-compute if index has changed
+                        directional_params = get_directional_parameters(
+                            direction_args['direction_time'][directional_time_idx],
+                            direction_args['direction_frequencies'],
+                            direction_args['direction_spread'][directional_time_idx],
+                            direction_args['direction_mean_direction'][directional_time_idx],
+                            direction_args['direction_energy_density'][directional_time_idx],
+                            direction_args['direction_peak_direction'][directional_time_idx]
+                        )
+                        last_directional_time_idx = directional_time_idx
+
+                    this_wave_records.update(
+                        add_prefix(directional_params, 'direction')
+                    )
+
+                for var in this_wave_records.keys():
+                    wave_records[var].append(this_wave_records[var])
+
+                local_wave_id += 1
+
+                # output and empty records in regular intervals
+                if local_wave_id % 1000 == 0:
+                    handle_output(wave_records, wave_params_history, num_flags_fired)
+                    wave_records.clear()
+                    pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
+
+            else:
+                # all waves processed
+                pbar.update(len(elevation) - last_wave_stop)
+
+            if wave_records:
+                handle_output(wave_records, wave_params_history, num_flags_fired)
+
+            pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
+
+    finally:
+        pass
+        # profiler.stop()
+        # print(profiler.output_text(unicode=True, color=True))
 
     return outfile, statefile

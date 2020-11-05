@@ -264,7 +264,7 @@ def process_cdip_station(station_folder, out_folder, nproc=None):
     # write output
     def generate_results():
         current_wave_id = 0
-        pbar = tqdm.tqdm(total=num_waves_total, desc='Writing output')
+        pbar = tqdm.tqdm(total=num_waves_total, desc='Writing output', mininterval=1)
 
         with pbar:
             for result_file in result_files:

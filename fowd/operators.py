@@ -185,12 +185,14 @@ def compute_mean_wave_period(wave_periods):
 
 def compute_skewness(elevation):
     """Compute surface elevation skewness."""
-    return np.nanmean(elevation ** 3) / np.nanmean(elevation ** 2) ** (3 / 2)
+    elevation = elevation[np.isfinite(elevation)]
+    return np.sum(elevation ** 3) / np.sum(elevation ** 2) ** (3 / 2)
 
 
 def compute_excess_kurtosis(elevation):
     """Compute surface elevation excess kurtosis."""
-    return np.nanmean(elevation ** 4) / np.nanmean(elevation ** 2) ** 2 - 3
+    elevation = elevation[np.isfinite(elevation)]
+    return np.sum(elevation ** 4) / np.sum(elevation ** 2) ** 2 - 3
 
 
 def compute_robust_skewness(elevation):
@@ -203,8 +205,8 @@ def compute_robust_kurtosis(elevation):
     """Compute left and right medcouple (tail weight estimate) from surface elevation."""
     elevation = elevation[np.isfinite(elevation)]
     median = np.median(elevation)
-    rmc = robustats.medcouple(elevation[elevation >= median])
-    lmc = -robustats.medcouple(elevation[elevation <= median])
+    rmc = robustats.medcouple(elevation[elevation > median])
+    lmc = -robustats.medcouple(elevation[elevation < median])
     return lmc, rmc
 
 
