@@ -122,7 +122,7 @@ def apply_mask(ds, dim, mask):
     return ds.isel(wave_id_local=idx)
 
 
-def remove_blacklisted(ds):
+def remove_blacklisted_cdip(ds):
     """Remove all records from blacklisted deployments."""
     deployment_files = np.unique(ds['meta_source_file_name'])
     whitelist = list(deployment_files)
@@ -147,7 +147,12 @@ def filter_undersampled(ds):
     return 3.2 * mean_frequency < nyquist_frequency
 
 
-def filter_cdip(ds, num_filtered_dict=None, chunk_size=10_000):
+def filter_drifting(ds):
+    """Remove all records with excessive low-frequency components."""
+    return ds['sea_state_30m_rel_energy_in_frequency_interval'].sel(meta_frequency_band=1) > 0.1
+
+
+def run_postprocessing(ds, num_filtered_dict=None, chunk_size=10_000):
     """Run all filters on given xarray Dataset.
 
     This is a generator that applies filters in chunks to avoid loading whole files.
@@ -160,10 +165,13 @@ def filter_cdip(ds, num_filtered_dict=None, chunk_size=10_000):
     num_records = len(ds['wave_id_local'])
 
     filters = {
-        'blacklist': remove_blacklisted,
         'low_swh': filter_low_swh,
         'undersampled': filter_undersampled,
+        'drifting': filter_drifting,
     }
+
+    if 'CDIP' in ds.meta_station_name.values[0]:
+        filters.update({'blacklist': remove_blacklisted_cdip})
 
     num_filtered_dict.update({f: 0 for f in filters})
 
