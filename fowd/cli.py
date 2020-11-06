@@ -148,7 +148,7 @@ def postprocess_cdip(input_files, out_folder):
     """Filter some invalid measurements from FOWD CDIP output."""
     import xarray as xr
 
-    from .postprocessing import filter_cdip, CDIP_DEPLOYMENT_BLACKLIST
+    from .postprocessing import run_postprocessing, CDIP_DEPLOYMENT_BLACKLIST
     from .logs import setup_file_logger
     from .output import write_records
     from .cdip import EXTRA_METADATA as CDIP_EXTRA_METADATA
@@ -195,7 +195,7 @@ def postprocess_cdip(input_files, out_folder):
             chunk_size = 1_000_000
 
             record_generator = tqdm.tqdm(
-                filter_cdip(ds, num_filtered, chunk_size=chunk_size),
+                run_postprocessing(ds, num_filtered, chunk_size=chunk_size),
                 total=math.ceil(num_records / chunk_size),
                 leave=False
             )
