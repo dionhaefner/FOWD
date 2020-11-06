@@ -141,28 +141,28 @@ def plot_qc(qc_infile, out_folder):
     click.echo(f'Results written to {out_folder}')
 
 
-@cli.command('postprocess-cdip')
-@click.argument('CDIP_FILES', type=click.Path(dir_okay=False, readable=True), nargs=-1)
+@cli.command('postprocess')
+@click.argument('INPUT_FILES', type=click.Path(dir_okay=False, readable=True), nargs=-1)
 @click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True), required=True)
-def postprocess_cdip(cdip_files, out_folder):
+def postprocess_cdip(input_files, out_folder):
     """Filter some invalid measurements from FOWD CDIP output."""
     import xarray as xr
 
     from .postprocessing import filter_cdip, CDIP_DEPLOYMENT_BLACKLIST
     from .logs import setup_file_logger
     from .output import write_records
-    from .cdip import EXTRA_METADATA
+    from .cdip import EXTRA_METADATA as CDIP_EXTRA_METADATA
 
     os.makedirs(out_folder, exist_ok=True)
 
     logfile = os.path.join(
         out_folder,
-        f'fowd_cdip_postprocessing_{datetime.datetime.today():%Y%m%dT%H%M%S}.log'
+        f'fowd_postprocessing_{datetime.datetime.today():%Y%m%dT%H%M%S}.log'
     )
     setup_file_logger(logfile)
     logger = logging.getLogger(__name__)
 
-    pbar = tqdm.tqdm(cdip_files, desc='Post-processing CDIP files')
+    pbar = tqdm.tqdm(input_files, desc='Post-processing FOWD files')
 
     for infile in pbar:
         pbar.set_postfix(file=os.path.basename(infile))
@@ -176,12 +176,17 @@ def postprocess_cdip(cdip_files, out_folder):
             station_name = str(ds.meta_station_name.values[0])
             num_records = len(ds['wave_id_local'])
 
-            assert station_name.startswith('CDIP_')
-            if CDIP_DEPLOYMENT_BLACKLIST.get(station_name[5:]) == '*':
+            is_cdip = station_name.startswith('CDIP_')
+            if is_cdip and CDIP_DEPLOYMENT_BLACKLIST.get(station_name[5:]) == '*':
                 logger.info('All deployments blacklisted, skipping')
                 continue
 
-            out_metadata = EXTRA_METADATA.copy()
+            include_direction = 'direction_sampling_time' in ds.variables
+
+            out_metadata = {}
+            if is_cdip:
+                out_metadata.update(CDIP_EXTRA_METADATA)
+
             out_metadata['postprocessing'] = 'filtered'
             out_metadata['postprocessing_input_uuid'] = ds.attrs['uuid']
 
@@ -199,12 +204,11 @@ def postprocess_cdip(cdip_files, out_folder):
                 record_generator,
                 outfile, station_name,
                 extra_metadata=out_metadata,
-                include_direction=True
+                include_direction=include_direction,
             )
 
-            logger.info(f'Filtered {num_filtered["blacklist"]} blacklisted seas')
-            logger.info(f'Filtered {num_filtered["low_swh"]} low-ampltiude seas')
-            logger.info(f'Filtered {num_filtered["undersampled"]} undersampled seas')
+            for filter_name, filter_num in num_filtered.items():
+                logger.info(f'[{filter_name}]: Filtered {filter_num} seas')
 
     click.echo(f'Results written to {out_folder}')
 
