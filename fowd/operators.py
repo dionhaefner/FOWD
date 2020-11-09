@@ -186,13 +186,13 @@ def compute_mean_wave_period(wave_periods):
 def compute_skewness(elevation):
     """Compute surface elevation skewness."""
     elevation = elevation[np.isfinite(elevation)]
-    return np.sum(elevation ** 3) / np.sum(elevation ** 2) ** (3 / 2)
+    return np.mean(elevation ** 3) / np.mean(elevation ** 2) ** (3 / 2)
 
 
 def compute_excess_kurtosis(elevation):
     """Compute surface elevation excess kurtosis."""
     elevation = elevation[np.isfinite(elevation)]
-    return np.sum(elevation ** 4) / np.sum(elevation ** 2) ** 2 - 3
+    return np.mean(elevation ** 4) / np.mean(elevation ** 2) ** 2 - 3
 
 
 def compute_robust_skewness(elevation):
