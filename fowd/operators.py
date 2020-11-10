@@ -12,6 +12,7 @@ import numpy as np
 import scipy.stats
 import scipy.signal
 import robustats
+from statsmodels.stats import stattools
 
 from .constants import (
     GRAVITY, DENSITY, FREQUENCY_INTERVALS,
@@ -201,13 +202,18 @@ def compute_robust_skewness(elevation):
     return robustats.medcouple(elevation)
 
 
-def compute_robust_kurtosis(elevation):
+def compute_robust_kurtosis_medcouple(elevation):
     """Compute left and right medcouple (tail weight estimate) from surface elevation."""
     elevation = elevation[np.isfinite(elevation)]
     median = np.median(elevation)
     rmc = robustats.medcouple(elevation[elevation > median])
     lmc = -robustats.medcouple(elevation[elevation < median])
     return lmc, rmc
+
+
+def compute_robust_kurtosis_statsmodels(elevation):
+    elevation = elevation[np.isfinite(elevation)]
+    return stattools.robust_kurtosis(elevation)
 
 
 def compute_valid_data_ratio(elevation):
@@ -593,9 +599,10 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     maximum_wave_height = compute_maximum_wave_height(wave_heights)
     mean_period_direct = compute_mean_wave_period(wave_periods)
     skewness = compute_skewness(elevation)
-    excess_kurtosis = compute_excess_kurtosis(elevation)
-    medcouple = compute_robust_skewness(elevation)
-    left_medcouple, right_medcouple = compute_robust_kurtosis(elevation)
+    # excess_kurtosis = compute_excess_kurtosis(elevation)
+    # medcouple = compute_robust_skewness(elevation)
+    # left_medcouple, right_medcouple = compute_robust_kurtosis_medcouple(elevation)
+    robust_kurtosis_arr = compute_robust_kurtosis_statsmodels(elevation)
     valid_data_ratio = compute_valid_data_ratio(z_displacement)
 
     frequencies, wave_spectral_density = compute_spectral_density(elevation, sample_dt)
@@ -661,10 +668,13 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
         'maximum_wave_height': maximum_wave_height,
         'rel_maximum_wave_height': rel_maximum_wave_height,
         'skewness': skewness,
-        'kurtosis': excess_kurtosis,
-        'robust_skewness': medcouple,
-        'robust_kurtosis_left': left_medcouple,
-        'robust_kurtosis_right': right_medcouple,
+        'kurtosis': robust_kurtosis_arr[0],
+        # 'robust_skewness': medcouple,
+        # 'robust_kurtosis_left': left_medcouple,
+        # 'robust_kurtosis_right': right_medcouple,
+        'robust_kurtosis_octiles': robust_kurtosis_arr[1],
+        'robust_kurtosis_exceedance': robust_kurtosis_arr[2],
+        'robust_kurtosis_spread': robust_kurtosis_arr[3],
         'valid_data_ratio': valid_data_ratio,
 
         'peak_wave_period': peak_period,

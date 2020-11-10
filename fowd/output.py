@@ -265,27 +265,51 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_robust_skewness': dict(
+        # f'sea_state_{interval}m_robust_skewness': dict(
+        #     dims=('wave_id_local',),
+        #     dtype='float32',
+        #     attrs=dict(
+        #         long_name='Medcouple (robust skewness) of sea surface elevation',
+        #         units='1',
+        #     )
+        # ),
+        # f'sea_state_{interval}m_robust_kurtosis_left': dict(
+        #     dims=('wave_id_local',),
+        #     dtype='float32',
+        #     attrs=dict(
+        #         long_name='Left medcouple (tail weight measure) of sea surface elevation',
+        #         units='1',
+        #     )
+        # ),
+        # f'sea_state_{interval}m_robust_kurtosis_right': dict(
+        #     dims=('wave_id_local',),
+        #     dtype='float32',
+        #     attrs=dict(
+        #         long_name='Right medcouple (tail weight measure) of sea surface elevation',
+        #         units='1',
+        #     )
+        # ),
+        f'sea_state_{interval}m_robust_kurtosis_octiles': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Medcouple (robust skewness) of sea surface elevation',
+                long_name='Robust kurtosis',
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_robust_kurtosis_left': dict(
+        f'sea_state_{interval}m_robust_kurtosis_exceedance': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Left medcouple (tail weight measure) of sea surface elevation',
+                long_name='Robust kurtosis',
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_robust_kurtosis_right': dict(
+        f'sea_state_{interval}m_robust_kurtosis_spread': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Right medcouple (tail weight measure) of sea surface elevation',
+                long_name='Robust kurtosis',
                 units='1',
             )
         ),
