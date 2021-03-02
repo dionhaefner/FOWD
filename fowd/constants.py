@@ -23,7 +23,7 @@ FREQUENCY_INTERVALS = (
 )
 
 # sea state aggregation periods (in minutes)
-SEA_STATE_INTERVALS = (10, 30)
+SEA_STATE_INTERVALS = (10, 30, 'dynamic')
 
 # gravitational acceleration in m/s^2
 GRAVITY = 9.81

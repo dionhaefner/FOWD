@@ -56,6 +56,43 @@ def find_wave_indices(z, start_idx=0):
             active = True
 
 
+def compute_dynamic_window_size(t, elevation, min_length, max_length, num_windows=10):
+    best_window_length = None
+    best_window_stationarity = float('inf')
+
+    if isinstance(min_length, np.timedelta64):
+        min_length = min_length / np.timedelta64(1, 's')
+
+    if isinstance(max_length, np.timedelta64):
+        max_length = max_length / np.timedelta64(1, 's')
+
+    for window_length in np.linspace(min_length, max_length, num_windows, dtype='int'):
+        window_stationarity = []
+        for current_time_idx in np.linspace(0, window_length, 10, endpoint=False, dtype='int'):
+            if current_time_idx >= len(t):
+                continue
+
+            window_stds = []
+            while True:
+                next_time = t[current_time_idx] + np.timedelta64(window_length, 's')
+                if next_time > t[-1]:
+                    break
+                next_time_idx = get_time_index(next_time, t)
+                window_stds.append(np.nanstd(elevation[current_time_idx:next_time_idx], ddof=1.5))
+                current_time_idx = next_time_idx
+
+            window_stds = np.asarray(window_stds)
+            window_stationarity.append(np.nanstd(window_stds[1:] / window_stds[:-1] - 1, ddof=1))
+
+        mean_window_stationarity = np.nanmean(window_stationarity)
+
+        if mean_window_stationarity < best_window_stationarity:
+            best_window_length = window_length
+            best_window_stationarity = mean_window_stationarity
+
+    return best_window_length
+
+
 def add_prefix(dic, prefix):
     """Adds a prefix to every key in given dictionary."""
     return {f'{prefix}_{key}': value for key, value in dic.items()}

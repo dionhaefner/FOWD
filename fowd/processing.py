@@ -25,7 +25,7 @@ from .constants import (
 from .operators import (
     find_wave_indices, add_prefix, get_time_index, get_md5_hash, get_proc_version,
     get_station_meta, get_wave_parameters, get_sea_parameters, get_directional_parameters,
-    check_quality_flags, compute_significant_wave_height
+    check_quality_flags, compute_significant_wave_height, compute_dynamic_window_size,
 )
 
 logger = logging.getLogger(__name__)
@@ -264,6 +264,8 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
         postfix=dict(waves_processed=str(local_wave_id)), initial=start_idx
     )
 
+    dynamic_sea_state_period = None
+
     with strict_filelock(outfile), tqdm.tqdm(**pbar_kwargs) as pbar:
         # initialize output files
         handle_output(wave_records, wave_params_history, num_flags_fired)
@@ -344,7 +346,23 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
 
             # compute sea state parameters
             for sea_state_period in SEA_STATE_INTERVALS:
-                offset = np.timedelta64(sea_state_period, 'm')
+                if sea_state_period == 'dynamic':
+                    if local_wave_id % 1000 == 0 or dynamic_sea_state_period is None:
+                        dynamic_window_idx = slice(
+                            get_time_index(wave_params['start_time'] - np.timedelta64(12, 'h'), time),
+                            wave_start,
+                        )
+                        dynamic_sea_state_period = compute_dynamic_window_size(
+                            time[dynamic_window_idx],
+                            elevation[dynamic_window_idx],
+                            min_length=np.timedelta64(10, 'm'),
+                            max_length=np.timedelta64(60, 'm'),
+                            num_windows=11,
+                        )
+                    this_wave_records['sea_state_dynamic_window_length'] = dynamic_sea_state_period
+                    offset = np.timedelta64(dynamic_sea_state_period, 's')
+                else:
+                    offset = np.timedelta64(sea_state_period, 'm')
 
                 sea_state_idx = slice(
                     get_time_index(wave_params['start_time'] - offset, time),
@@ -403,6 +421,9 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                 handle_output(wave_records, wave_params_history, num_flags_fired)
                 wave_records.clear()
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
+
+            if local_wave_id > 10_000:
+                break
 
         else:
             # all waves processed
