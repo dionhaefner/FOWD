@@ -359,6 +359,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                             max_length=np.timedelta64(60, 'm'),
                             num_windows=11,
                         )
+
                     this_wave_records['sea_state_dynamic_window_length'] = dynamic_sea_state_period
                     offset = np.timedelta64(dynamic_sea_state_period, 's')
                 else:
@@ -385,8 +386,13 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                     water_depth
                 )
 
+                if isinstance(sea_state_period, str):
+                    sea_state_prefix = f'sea_state_{sea_state_period}'
+                else:
+                    sea_state_prefix = f'sea_state_{sea_state_period}m'
+
                 this_wave_records.update(
-                    add_prefix(sea_state_params, f'sea_state_{sea_state_period}m')
+                    add_prefix(sea_state_params, sea_state_prefix)
                 )
 
             # compute directional quantities
@@ -421,9 +427,6 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                 handle_output(wave_records, wave_params_history, num_flags_fired)
                 wave_records.clear()
                 pbar.set_postfix(dict(waves_processed=str(local_wave_id)))
-
-            if local_wave_id > 10_000:
-                break
 
         else:
             # all waves processed

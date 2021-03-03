@@ -61,10 +61,10 @@ def compute_dynamic_window_size(t, elevation, min_length, max_length, num_window
     best_window_stationarity = float('inf')
 
     if isinstance(min_length, np.timedelta64):
-        min_length = min_length / np.timedelta64(1, 's')
+        min_length = int(min_length / np.timedelta64(1, 's'))
 
     if isinstance(max_length, np.timedelta64):
-        max_length = max_length / np.timedelta64(1, 's')
+        max_length = int(max_length / np.timedelta64(1, 's'))
 
     for window_length in np.linspace(min_length, max_length, num_windows, dtype='int'):
         window_stationarity = []
@@ -89,6 +89,9 @@ def compute_dynamic_window_size(t, elevation, min_length, max_length, num_window
         if mean_window_stationarity < best_window_stationarity:
             best_window_length = window_length
             best_window_stationarity = mean_window_stationarity
+
+    if best_window_length is None:
+        return min_length
 
     return best_window_length
 

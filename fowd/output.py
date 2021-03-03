@@ -181,8 +181,23 @@ DATASET_VARIABLES = dict(
 
 # sea state parameter metadata
 for interval in SEA_STATE_INTERVALS:
+    if not isinstance(interval, str):
+        interval = f'{interval}m'
+
+    if interval == 'dynamic':
+        DATASET_VARIABLES.update({
+            'sea_state_dynamic_window_length': dict(
+                dims=('wave_id_local',),
+                dtype='int64',
+                attrs=dict(
+                    long_name='Length of dynamically computed sea state window',
+                    units='seconds',
+                )
+            )
+        })
+
     DATASET_VARIABLES.update({
-        f'sea_state_{interval}m_start_time': dict(
+        f'sea_state_{interval}_start_time': dict(
             dims=('wave_id_local',),
             dtype='int64',
             attrs=dict(
@@ -190,7 +205,7 @@ for interval in SEA_STATE_INTERVALS:
                 units=f'milliseconds since {TIME_ORIGIN}',
             )
         ),
-        f'sea_state_{interval}m_end_time': dict(
+        f'sea_state_{interval}_end_time': dict(
             dims=('wave_id_local',),
             dtype='int64',
             attrs=dict(
@@ -198,7 +213,7 @@ for interval in SEA_STATE_INTERVALS:
                 units=f'milliseconds since {TIME_ORIGIN}',
             )
         ),
-        f'sea_state_{interval}m_significant_wave_height_spectral': dict(
+        f'sea_state_{interval}_significant_wave_height_spectral': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -206,7 +221,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='meters',
             )
         ),
-        f'sea_state_{interval}m_significant_wave_height_direct': dict(
+        f'sea_state_{interval}_significant_wave_height_direct': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -214,7 +229,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='meters',
             )
         ),
-        f'sea_state_{interval}m_maximum_wave_height': dict(
+        f'sea_state_{interval}_maximum_wave_height': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -222,7 +237,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='meters',
             )
         ),
-        f'sea_state_{interval}m_rel_maximum_wave_height': dict(
+        f'sea_state_{interval}_rel_maximum_wave_height': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -233,7 +248,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_mean_period_direct': dict(
+        f'sea_state_{interval}_mean_period_direct': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -241,7 +256,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='seconds',
             )
         ),
-        f'sea_state_{interval}m_mean_period_spectral': dict(
+        f'sea_state_{interval}_mean_period_spectral': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -249,7 +264,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='seconds',
             )
         ),
-        f'sea_state_{interval}m_skewness': dict(
+        f'sea_state_{interval}_skewness': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -257,7 +272,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_kurtosis': dict(
+        f'sea_state_{interval}_kurtosis': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -265,7 +280,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_valid_data_ratio': dict(
+        f'sea_state_{interval}_valid_data_ratio': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -275,7 +290,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_peak_wave_period': dict(
+        f'sea_state_{interval}_peak_wave_period': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -283,7 +298,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='seconds',
             )
         ),
-        f'sea_state_{interval}m_peak_wavelength': dict(
+        f'sea_state_{interval}_peak_wavelength': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -291,7 +306,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='meters',
             )
         ),
-        f'sea_state_{interval}m_steepness': dict(
+        f'sea_state_{interval}_steepness': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -299,7 +314,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_bandwidth_peakedness': dict(
+        f'sea_state_{interval}_bandwidth_peakedness': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -310,7 +325,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_bandwidth_narrowness': dict(
+        f'sea_state_{interval}_bandwidth_narrowness': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -318,7 +333,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_benjamin_feir_index_peakedness': dict(
+        f'sea_state_{interval}_benjamin_feir_index_peakedness': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -326,7 +341,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_benjamin_feir_index_narrowness': dict(
+        f'sea_state_{interval}_benjamin_feir_index_narrowness': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -334,7 +349,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='1',
             )
         ),
-        f'sea_state_{interval}m_crest_trough_correlation': dict(
+        f'sea_state_{interval}_crest_trough_correlation': dict(
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
@@ -344,7 +359,7 @@ for interval in SEA_STATE_INTERVALS:
                 valid_max=1,
             )
         ),
-        f'sea_state_{interval}m_energy_in_frequency_interval': dict(
+        f'sea_state_{interval}_energy_in_frequency_interval': dict(
             dims=('wave_id_local', 'meta_frequency_band'),
             dtype='float32',
             attrs=dict(
@@ -352,7 +367,7 @@ for interval in SEA_STATE_INTERVALS:
                 units='watts',
             )
         ),
-        f'sea_state_{interval}m_rel_energy_in_frequency_interval': dict(
+        f'sea_state_{interval}_rel_energy_in_frequency_interval': dict(
             dims=('wave_id_local', 'meta_frequency_band'),
             dtype='float32',
             attrs=dict(
