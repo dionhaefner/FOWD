@@ -482,12 +482,11 @@ def compute_directionality_index(frequencies, spread, spectral_bandwidth, energy
         www.nature.com, doi:10.1038/s41598-019-51706-8.
 
     """
-    total_spread = (
-        integrate(spread * energy_density, frequencies)
+    total_squared_spread = (
+        integrate(np.radians(spread) ** 2 * energy_density, frequencies)
         / integrate(energy_density, frequencies)
     )
-    total_spread_rad = np.radians(total_spread)
-    return total_spread_rad ** 2 / (2 * spectral_bandwidth ** 2)
+    return total_squared_spread / (2 * spectral_bandwidth ** 2)
 
 
 # QC
