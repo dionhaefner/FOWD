@@ -348,10 +348,11 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
             for sea_state_period in SEA_STATE_INTERVALS:
                 if sea_state_period == 'dynamic':
                     if local_wave_id % 1000 == 0 or dynamic_sea_state_period is None:
-                        dynamic_window_idx = slice(
-                            get_time_index(wave_params['start_time'] - np.timedelta64(12, 'h'), time),
-                            wave_start,
+                        dynamic_window_start = get_time_index(
+                            wave_params['start_time'] - np.timedelta64(12, 'h'),
+                            time
                         )
+                        dynamic_window_idx = slice(dynamic_window_start, wave_start)
                         dynamic_sea_state_period = compute_dynamic_window_size(
                             time[dynamic_window_idx],
                             elevation[dynamic_window_idx],
@@ -409,7 +410,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                         direction_args['direction_spread'][directional_time_idx],
                         direction_args['direction_mean_direction'][directional_time_idx],
                         direction_args['direction_energy_density'][directional_time_idx],
-                        direction_args['direction_peak_direction'][directional_time_idx]
+                        direction_args['direction_peak_direction'][directional_time_idx],
                     )
                     last_directional_time_idx = directional_time_idx
 
