@@ -419,6 +419,18 @@ DIRECTIONAL_VARIABLES = dict(
             valid_max=360
         )
     ),
+    direction_directionality_index=dict(
+        dims=('wave_id_local',),
+        dtype='float32',
+        attrs=dict(
+            long_name=(
+                'Directionality index R (squared ratio of directional spread and '
+                'spectral bandwidth)'
+            ),
+            units='1',
+            valid_min=0,
+        )
+    )
 )
 
 
