@@ -191,7 +191,7 @@ for interval in SEA_STATE_INTERVALS:
                 dtype='int64',
                 attrs=dict(
                     long_name='Length of dynamically computed sea state window',
-                    units='seconds',
+                    units='minutes',
                 )
             )
         })

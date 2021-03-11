@@ -56,7 +56,7 @@ def find_wave_indices(z, start_idx=0):
             active = True
 
 
-def compute_dynamic_window_size(t, elevation, min_length, max_length, num_windows=10):
+def compute_dynamic_window_size(t, elevation, min_length, max_length, num_windows, num_samples):
     """Compute best window size from data by minimizing fluctuations around mean energy drift.
 
     Reference:
@@ -66,7 +66,6 @@ def compute_dynamic_window_size(t, elevation, min_length, max_length, num_window
         www.nature.com, doi:10.1038/s41598-019-51706-8.
 
     """
-    # TODO: introduce constants for some of these choices
     best_window_length = None
     best_window_stationarity = float('inf')
 
@@ -76,17 +75,23 @@ def compute_dynamic_window_size(t, elevation, min_length, max_length, num_window
     if isinstance(max_length, np.timedelta64):
         max_length = int(max_length / np.timedelta64(1, 's'))
 
-    for window_length in np.linspace(min_length, max_length, num_windows, dtype='int'):
+    window_lengths = np.linspace(min_length, max_length, num_windows, dtype='int')
+
+    for window_length in window_lengths:
         window_stationarity = []
-        for current_time_idx in np.linspace(0, window_length, 10, endpoint=False, dtype='int'):
-            if current_time_idx >= len(t):
+        window_offsets = np.linspace(0, window_length, num_samples, endpoint=False, dtype='int')
+
+        for window_offset in window_offsets:
+            if window_offset >= len(t):
                 continue
 
+            current_time_idx = window_offset
             window_stds = []
             while True:
                 next_time = t[current_time_idx] + np.timedelta64(window_length, 's')
                 if next_time > t[-1]:
                     break
+
                 next_time_idx = get_time_index(next_time, t)
                 window_stds.append(np.nanstd(elevation[current_time_idx:next_time_idx], ddof=1.5))
                 current_time_idx = next_time_idx
@@ -260,9 +265,8 @@ def compute_spectral_density(elevation, sample_dt):
     nperseg = round(SPECTRUM_WINDOW_SIZE / sample_dt)
     nfft = 2 ** (math.ceil(math.log(nperseg, 2)))  # round to next higher power of 2
     return scipy.signal.welch(
-        elevation, 1 / sample_dt,
+        elevation, 1 / sample_dt, window='hann',
         nperseg=nperseg, nfft=nfft, noverlap=nperseg // 2,
-        window='hann', detrend=False  # data is already detrended
     )
 
 
