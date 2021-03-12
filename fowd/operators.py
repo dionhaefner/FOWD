@@ -352,7 +352,7 @@ def compute_nth_moment(frequencies, wave_spectral_density, n):
 
 
 def compute_mean_wave_period_spectral(zeroth_moment, frequencies, wave_spectral_density):
-    """Compute mean wave period from wave spectral density."""
+    """Compute mean zero-crossing period from wave spectral density."""
     second_moment = compute_nth_moment(frequencies, wave_spectral_density, 2)
     return np.sqrt(zeroth_moment / second_moment)
 

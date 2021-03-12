@@ -260,7 +260,7 @@ for interval in SEA_STATE_INTERVALS:
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Mean wave period estimated from spectral density spectrum',
+                long_name='Mean zero-crossing period estimated from spectral density spectrum',
                 units='seconds',
             )
         ),
