@@ -19,13 +19,16 @@ import numpy as np
 
 from .constants import (
     WAVE_HISTORY_LENGTH, SEA_STATE_INTERVALS,
-    QC_FAIL_LOG_THRESHOLD, QC_EXTREME_WAVE_LOG_THRESHOLD
+    QC_FAIL_LOG_THRESHOLD, QC_EXTREME_WAVE_LOG_THRESHOLD,
+    DYNAMIC_WINDOW_LENGTH_BOUNDS, DYNAMIC_WINDOW_UPDATE_FREQUENCY,
+    DYNAMIC_WINDOW_REFERENCE_PERIOD, NUM_DYNAMIC_WINDOWS,
+    NUM_DYNAMIC_WINDOW_SAMPLES
 )
 
 from .operators import (
     find_wave_indices, add_prefix, get_time_index, get_md5_hash, get_proc_version,
     get_station_meta, get_wave_parameters, get_sea_parameters, get_directional_parameters,
-    check_quality_flags, compute_significant_wave_height
+    check_quality_flags, compute_significant_wave_height, compute_dynamic_window_size,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,6 +115,30 @@ def is_same_version(version1, version2):
     return split_v1[:2] == split_v2[:2]
 
 
+@contextlib.contextmanager
+def strict_filelock(target_file):
+    """File-based lock that throws an exception if lock is already in place."""
+    lockfile = f'{target_file}.lock'
+    if os.path.isfile(lockfile):
+        raise RuntimeError(
+            f'File {target_file} appears to be locked. '
+            'Make sure that no other process is accessing it, then remove manually.'
+        )
+
+    with open(lockfile, 'w'):
+        pass
+
+    try:
+        yield
+    finally:
+        try:
+            os.remove(lockfile)
+        except OSError:
+            warnings.warn(f'Could not remove lock file {lockfile}')
+
+
+# main functions
+
 def initialize_processing(record_file, state_file, input_hash):
     """Parse temporary files to re-start processing if possible."""
     default_params = dict(
@@ -169,26 +196,37 @@ def initialize_processing(record_file, state_file, input_hash):
     )
 
 
-@contextlib.contextmanager
-def strict_filelock(target_file):
-    """File-based lock that throws an exception if lock is already in place."""
-    lockfile = f'{target_file}.lock'
-    if os.path.isfile(lockfile):
-        raise RuntimeError(
-            f'File {target_file} appears to be locked. '
-            'Make sure that no other process is accessing it, then remove manually.'
-        )
+def get_dynamic_window_size(current_window_size, current_time, time, elevation, last_updated=None):
+    skip_update = (
+        last_updated is not None
+        and current_time - last_updated < np.timedelta64(DYNAMIC_WINDOW_UPDATE_FREQUENCY, 'm')
+    )
 
-    with open(lockfile, 'w'):
-        pass
+    if skip_update:
+        return current_window_size, last_updated
 
-    try:
-        yield
-    finally:
-        try:
-            os.remove(lockfile)
-        except OSError:
-            warnings.warn(f'Could not remove lock file {lockfile}')
+    print("not skipping")
+
+    ref_period_start, ref_period_end = DYNAMIC_WINDOW_REFERENCE_PERIOD
+    dynamic_window_start = get_time_index(
+        current_time - np.timedelta64(ref_period_start, 'm'),
+        time,
+    )
+    dynamic_window_end = get_time_index(
+        current_time + np.timedelta64(ref_period_end, 'm'),
+        time,
+    )
+    dynamic_window_idx = slice(dynamic_window_start, dynamic_window_end)
+    dynamic_sea_state_period = compute_dynamic_window_size(
+        time[dynamic_window_idx],
+        elevation[dynamic_window_idx],
+        min_length=np.timedelta64(DYNAMIC_WINDOW_LENGTH_BOUNDS[0], 'm'),
+        max_length=np.timedelta64(DYNAMIC_WINDOW_LENGTH_BOUNDS[1], 'm'),
+        num_windows=NUM_DYNAMIC_WINDOWS,
+        num_samples=NUM_DYNAMIC_WINDOW_SAMPLES,
+    )
+
+    return dynamic_sea_state_period // 60, current_time
 
 
 def compute_wave_records(time, elevation, elevation_normalized, outfile, statefile,
@@ -263,6 +301,8 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
         mininterval=0.25, maxinterval=1, smoothing=0.1,
         postfix=dict(waves_processed=str(local_wave_id)), initial=start_idx
     )
+
+    dynamic_sea_state_period = dynamic_period_last_update = None
 
     with strict_filelock(outfile), tqdm.tqdm(**pbar_kwargs) as pbar:
         # initialize output files
@@ -344,7 +384,15 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
 
             # compute sea state parameters
             for sea_state_period in SEA_STATE_INTERVALS:
-                offset = np.timedelta64(sea_state_period, 'm')
+                if sea_state_period == 'dynamic':
+                    dynamic_sea_state_period, dynamic_period_last_update = get_dynamic_window_size(
+                        dynamic_sea_state_period, wave_params["start_time"], time, elevation,
+                        last_updated=dynamic_period_last_update
+                    )
+                    this_wave_records['sea_state_dynamic_window_length'] = dynamic_sea_state_period
+                    offset = np.timedelta64(dynamic_sea_state_period, 'm')
+                else:
+                    offset = np.timedelta64(sea_state_period, 'm')
 
                 sea_state_idx = slice(
                     get_time_index(wave_params['start_time'] - offset, time),
@@ -367,8 +415,13 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                     water_depth
                 )
 
+                if isinstance(sea_state_period, str):
+                    sea_state_prefix = f'sea_state_{sea_state_period}'
+                else:
+                    sea_state_prefix = f'sea_state_{sea_state_period}m'
+
                 this_wave_records.update(
-                    add_prefix(sea_state_params, f'sea_state_{sea_state_period}m')
+                    add_prefix(sea_state_params, sea_state_prefix)
                 )
 
             # compute directional quantities
@@ -385,7 +438,7 @@ def compute_wave_records(time, elevation, elevation_normalized, outfile, statefi
                         direction_args['direction_spread'][directional_time_idx],
                         direction_args['direction_mean_direction'][directional_time_idx],
                         direction_args['direction_energy_density'][directional_time_idx],
-                        direction_args['direction_peak_direction'][directional_time_idx]
+                        direction_args['direction_peak_direction'][directional_time_idx],
                     )
                     last_directional_time_idx = directional_time_idx
 

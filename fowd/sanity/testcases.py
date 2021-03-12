@@ -52,8 +52,8 @@ def single_group_test_case(t):
 def directional_test_case(spectral_params):
     f = np.linspace(1e-3, 1, 1000)
     spectrum = ochi_hubble_spectrum(f, **spectral_params)
-    directional_spread = np.linspace(0, 360 * 4, len(f)) % 360
-    mean_direction = np.linspace(360 * 4, 0, len(f)) % 360
+    directional_spread = np.linspace(0, 180, len(f))
+    mean_direction = np.linspace(360, 0, len(f))
 
     return dict(
         time=None,
@@ -151,5 +151,8 @@ TEST_CASES['phase_alignment'] = ochi_test_case(
 DIRECTIONAL_TEST_CASES = {
     'swell_dominated_directional': directional_test_case(
         ochi_params['swell_dominated'],
+    ),
+    'wind_dominated_directional': directional_test_case(
+        ochi_params['wind_dominated'],
     )
 }

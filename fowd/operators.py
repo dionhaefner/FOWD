@@ -56,6 +56,61 @@ def find_wave_indices(z, start_idx=0):
             active = True
 
 
+def compute_dynamic_window_size(t, elevation, min_length, max_length, num_windows, num_samples):
+    """Compute best window size from data by minimizing fluctuations around mean energy drift.
+
+    Reference:
+
+        Fedele, Francesco, et al. “Large Nearshore Storm Waves off the Irish Coast.”
+        Scientific Reports, vol. 9, no. 1, 1, Nature Publishing Group, Oct. 2019, p. 15406.
+        www.nature.com, doi:10.1038/s41598-019-51706-8.
+
+    """
+    best_window_length = None
+    best_window_stationarity = float('inf')
+
+    if isinstance(min_length, np.timedelta64):
+        min_length = int(min_length / np.timedelta64(1, 's'))
+
+    if isinstance(max_length, np.timedelta64):
+        max_length = int(max_length / np.timedelta64(1, 's'))
+
+    window_lengths = np.linspace(min_length, max_length, num_windows, dtype='int')
+
+    for window_length in window_lengths:
+        window_stationarity = []
+        window_offsets = np.linspace(0, window_length, num_samples, endpoint=False, dtype='int')
+
+        for window_offset in window_offsets:
+            if window_offset >= len(t):
+                continue
+
+            current_time_idx = window_offset
+            window_stds = []
+            while True:
+                next_time = t[current_time_idx] + np.timedelta64(window_length, 's')
+                if next_time > t[-1]:
+                    break
+
+                next_time_idx = get_time_index(next_time, t)
+                window_stds.append(np.nanstd(elevation[current_time_idx:next_time_idx], ddof=1.5))
+                current_time_idx = next_time_idx
+
+            window_stds = np.asarray(window_stds)
+            window_stationarity.append(np.nanstd(window_stds[1:] / window_stds[:-1] - 1, ddof=1))
+
+        mean_window_stationarity = np.nanmean(window_stationarity)
+
+        if mean_window_stationarity < best_window_stationarity:
+            best_window_length = window_length
+            best_window_stationarity = mean_window_stationarity
+
+    if best_window_length is None:
+        return min_length
+
+    return best_window_length
+
+
 def add_prefix(dic, prefix):
     """Adds a prefix to every key in given dictionary."""
     return {f'{prefix}_{key}': value for key, value in dic.items()}
@@ -145,7 +200,8 @@ def compute_ursell_number(wave_height, wavelength, water_depth):
 
 def integrate(y, x):
     """Computes numerical integral ∫ y(x) dx."""
-    return np.trapz(y, x)
+    mask = np.isfinite(y) & np.isfinite(x)
+    return np.trapz(y[mask], x[mask])
 
 
 def compute_elevation(displacement):
@@ -209,9 +265,8 @@ def compute_spectral_density(elevation, sample_dt):
     nperseg = round(SPECTRUM_WINDOW_SIZE / sample_dt)
     nfft = 2 ** (math.ceil(math.log(nperseg, 2)))  # round to next higher power of 2
     return scipy.signal.welch(
-        elevation, 1 / sample_dt,
+        elevation, 1 / sample_dt, window='hann',
         nperseg=nperseg, nfft=nfft, noverlap=nperseg // 2,
-        window='hann', detrend=False  # data is already detrended
     )
 
 
@@ -297,7 +352,7 @@ def compute_nth_moment(frequencies, wave_spectral_density, n):
 
 
 def compute_mean_wave_period_spectral(zeroth_moment, frequencies, wave_spectral_density):
-    """Compute mean wave period from wave spectral density."""
+    """Compute mean zero-crossing period from wave spectral density."""
     second_moment = compute_nth_moment(frequencies, wave_spectral_density, 2)
     return np.sqrt(zeroth_moment / second_moment)
 
@@ -419,6 +474,23 @@ def compute_dominant_spread(frequencies, spread, energy_density):
 def compute_dominant_direction(frequencies, direction, energy_density):
     """Compute dominant wave direction."""
     return circular_weighted_average(frequencies, direction, weights=energy_density)
+
+
+def compute_directionality_index(frequencies, spread, spectral_bandwidth, energy_density):
+    """Compute directionality index R.
+
+    Reference:
+
+        Fedele, Francesco, et al. “Large Nearshore Storm Waves off the Irish Coast.”
+        Scientific Reports, vol. 9, no. 1, 1, Nature Publishing Group, Oct. 2019, p. 15406.
+        www.nature.com, doi:10.1038/s41598-019-51706-8.
+
+    """
+    total_squared_spread = (
+        integrate(np.radians(spread) ** 2 * energy_density, frequencies)
+        / integrate(energy_density, frequencies)
+    )
+    return total_squared_spread / (2 * spectral_bandwidth ** 2)
 
 
 # QC
@@ -686,9 +758,19 @@ def get_directional_parameters(time, frequencies, directional_spread, mean_direc
     assert len(dominant_directional_spreads) == len(FREQUENCY_INTERVALS)
     assert len(dominant_directions) == len(FREQUENCY_INTERVALS)
 
+    zeroth_moment = compute_nth_moment(frequencies, wave_spectral_density, 0)
+    first_moment = compute_nth_moment(frequencies, wave_spectral_density, 1)
+    spectral_bandwidth = compute_bandwidth_narrowness(
+        zeroth_moment, first_moment, frequencies, wave_spectral_density
+    )
+    directionality_index = compute_directionality_index(
+        frequencies, directional_spread, spectral_bandwidth, wave_spectral_density
+    )
+
     return {
         'sampling_time': time,
         'dominant_spread_in_frequency_interval': dominant_directional_spreads,
         'dominant_direction_in_frequency_interval': dominant_directions,
         'peak_wave_direction': peak_wave_direction,
+        'directionality_index': directionality_index,
     }
