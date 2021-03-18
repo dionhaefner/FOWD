@@ -205,8 +205,6 @@ def get_dynamic_window_size(current_window_size, current_time, time, elevation, 
     if skip_update:
         return current_window_size, last_updated
 
-    print("not skipping")
-
     ref_period_start, ref_period_end = DYNAMIC_WINDOW_REFERENCE_PERIOD
     dynamic_window_start = get_time_index(
         current_time - np.timedelta64(ref_period_start, 'm'),

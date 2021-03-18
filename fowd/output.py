@@ -191,7 +191,7 @@ for interval in SEA_STATE_INTERVALS:
                 dtype='int64',
                 attrs=dict(
                     long_name='Length of dynamically computed sea state window',
-                    units='minutes',
+                    units='seconds',
                 )
             )
         })
@@ -217,7 +217,7 @@ for interval in SEA_STATE_INTERVALS:
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Significant wave height estimated from spectral density spectrum (Hm0)',
+                long_name='Significant wave height estimated from wave spectrum (Hm0)',
                 units='meters',
             )
         ),
@@ -260,7 +260,7 @@ for interval in SEA_STATE_INTERVALS:
             dims=('wave_id_local',),
             dtype='float32',
             attrs=dict(
-                long_name='Mean zero-crossing period estimated from spectral density spectrum',
+                long_name='Mean zero-crossing period estimated from wave spectrum',
                 units='seconds',
             )
         ),
@@ -363,8 +363,8 @@ for interval in SEA_STATE_INTERVALS:
             dims=('wave_id_local', 'meta_frequency_band'),
             dtype='float32',
             attrs=dict(
-                long_name='Total power contained in frequency band',
-                units='watts',
+                long_name='Total energy density contained in frequency band',
+                units='J m-2',
             )
         ),
         f'sea_state_{interval}_rel_energy_in_frequency_interval': dict(
