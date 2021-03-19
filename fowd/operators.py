@@ -7,6 +7,7 @@ Operators for all physical quantities and metadata.
 import os
 import math
 import hashlib
+import warnings
 
 import numpy as np
 import scipy.stats
@@ -81,25 +82,33 @@ def compute_dynamic_window_size(t, elevation, min_length, max_length, num_window
         window_stationarity = []
         window_offsets = np.linspace(0, window_length, num_samples, endpoint=False, dtype='int')
 
-        for window_offset in window_offsets:
-            if window_offset >= len(t):
-                continue
+        # suppress nan warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=RuntimeWarning)
 
-            current_time_idx = window_offset
-            window_stds = []
-            while True:
-                next_time = t[current_time_idx] + np.timedelta64(window_length, 's')
-                if next_time > t[-1]:
-                    break
+            for window_offset in window_offsets:
+                if window_offset >= len(t):
+                    continue
 
-                next_time_idx = get_time_index(next_time, t)
-                window_stds.append(np.nanstd(elevation[current_time_idx:next_time_idx], ddof=1.5))
-                current_time_idx = next_time_idx
+                current_time_idx = window_offset
+                window_stds = []
+                while True:
+                    next_time = t[current_time_idx] + np.timedelta64(window_length, 's')
+                    if next_time > t[-1]:
+                        break
 
-            window_stds = np.asarray(window_stds)
-            window_stationarity.append(np.nanstd(window_stds[1:] / window_stds[:-1] - 1, ddof=1))
+                    next_time_idx = get_time_index(next_time, t)
+                    window_stds.append(
+                        np.nanstd(elevation[current_time_idx:next_time_idx], ddof=1.5)
+                    )
+                    current_time_idx = next_time_idx
 
-        mean_window_stationarity = np.nanmean(window_stationarity)
+                window_stds = np.asarray(window_stds)
+                window_stationarity.append(
+                    np.nanstd(window_stds[1:] / window_stds[:-1] - 1, ddof=1)
+                )
+
+            mean_window_stationarity = np.nanmean(window_stationarity)
 
         if mean_window_stationarity < best_window_stationarity:
             best_window_length = window_length

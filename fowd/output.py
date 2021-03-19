@@ -191,7 +191,7 @@ for interval in SEA_STATE_INTERVALS:
                 dtype='int64',
                 attrs=dict(
                     long_name='Length of dynamically computed sea state window',
-                    units='seconds',
+                    units='minutes',
                 )
             )
         })
@@ -622,9 +622,20 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
                 if np.issubdtype(data.dtype, np.datetime64):
                     data = (data - np.datetime64(TIME_ORIGIN)) / np.timedelta64(1, 'ms')
 
-                # convert timedelta64 to seconds
+                # convert timedelta64 to target unit
                 if np.issubdtype(data.dtype, np.timedelta64):
-                    data = data / np.timedelta64(1, 's')
+                    unit = meta.get('attrs', {}).get('units')
+
+                    if unit == 'seconds':
+                        target_unit = 's'
+                    elif unit == 'minutes':
+                        target_unit = 'm'
+                    elif unit == 'hours':
+                        target_unit = 'h'
+                    else:
+                        raise ValueError(f'Got unrecognized time unit {unit}')
+
+                    data = data / np.timedelta64(1, target_unit)
 
                 v[0, chunk_slice, ...] = data
 

@@ -224,7 +224,7 @@ def get_dynamic_window_size(current_window_size, current_time, time, elevation, 
         num_samples=NUM_DYNAMIC_WINDOW_SAMPLES,
     )
 
-    return dynamic_sea_state_period // 60, current_time
+    return np.timedelta64(dynamic_sea_state_period, 's'), current_time
 
 
 def compute_wave_records(time, elevation, elevation_normalized, outfile, statefile,
