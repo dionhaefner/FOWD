@@ -144,8 +144,8 @@ def plot_qc(qc_infile, out_folder):
 @cli.command('postprocess')
 @click.argument('INPUT_FILES', type=click.Path(dir_okay=False, readable=True), nargs=-1)
 @click.option('-o', '--out-folder', type=click.Path(file_okay=False, writable=True), required=True)
-def postprocess_cdip(input_files, out_folder):
-    """Filter some invalid measurements from FOWD CDIP output."""
+def postprocess(input_files, out_folder):
+    """Filter some invalid measurements from FOWD output."""
     import xarray as xr
 
     from .postprocessing import run_postprocessing, CDIP_DEPLOYMENT_BLACKLIST
