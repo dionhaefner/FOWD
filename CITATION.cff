@@ -1,0 +1,20 @@
+authors:
+  - family-names: Häfner
+    given-names: Dion
+cff-version: 1.2.0
+message: If you use this software, please cite the article from preferred-citation.
+title: FOWD
+preferred-citation:
+  type: article
+  title: FOWD: A Free Ocean Wave Dataset for Data Mining and Machine Learning
+  authors:
+    - family-names: Häfner
+      given-names: Dion
+    - family-names: Gemmrich
+      given-names: Johannes
+    - family-names: Jochum
+      given-names: Markus
+  year: 2021
+  journal: Journal of Atmospheric and Oceanic Technology
+  doi: 10.1175/JTECH-D-20-0185.1
+  url: https://journals.ametsoc.org/view/journals/atot/aop/JTECH-D-20-0185.1/JTECH-D-20-0185.1.xml
