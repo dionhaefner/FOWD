@@ -23,7 +23,7 @@ FREQUENCY_INTERVALS = (
 )
 
 # sea state aggregation periods (in minutes)
-SEA_STATE_INTERVALS = (10, 30, 'dynamic')
+SEA_STATE_INTERVALS = ('dynamic',)
 
 # settings for dynamic sea state aggregation period
 # the shortest and longest permitted dynamic window sizes (in minutes)
