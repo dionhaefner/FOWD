@@ -377,6 +377,23 @@ for interval in SEA_STATE_INTERVALS:
                 valid_max=1,
             )
         ),
+        f'sea_state_{interval}_spectrum': dict(
+            dims=('wave_id_local',),
+            dtype='vlen',
+            attrs=dict(
+                long_name='Wave spectral density',
+                units='m2 s-1',
+                comment=f'Frequency resolution is given by sea_state_{interval}_spectrum_df',
+            )
+        ),
+        f'sea_state_{interval}_spectrum_df': dict(
+            dims=('wave_id_local',),
+            dtype='float32',
+            attrs=dict(
+                long_name='Wave spectral density - frequency resolution',
+                units='Hz',
+            )
+        ),
     })
 
 # directional parameter metadata
@@ -636,6 +653,11 @@ def write_records(wave_record_iterator, filename, station_name, extra_metadata=N
                         raise ValueError(f'Got unrecognized time unit {unit}')
 
                     data = data / np.timedelta64(1, target_unit)
+
+                if meta['dtype'] == 'vlen':
+                    obj_data = np.empty(data.shape[0], dtype="object")
+                    obj_data[...] = list(data)
+                    data = obj_data
 
                 v[0, chunk_slice, ...] = data
 

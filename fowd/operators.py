@@ -660,6 +660,7 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
     valid_data_ratio = compute_valid_data_ratio(z_displacement)
 
     frequencies, wave_spectral_density = compute_spectral_density(elevation, sample_dt)
+
     zeroth_moment = compute_nth_moment(frequencies, wave_spectral_density, 0)
     first_moment = compute_nth_moment(frequencies, wave_spectral_density, 1)
     significant_wave_height_spectral = compute_significant_wave_height_spectral(zeroth_moment)
@@ -737,6 +738,9 @@ def get_sea_parameters(time, z_displacement, wave_heights, wave_periods, water_d
 
         'energy_in_frequency_interval': energy_in_frequency_interval,
         'rel_energy_in_frequency_interval': rel_energy_in_frequency_interval,
+
+        'spectrum': wave_spectral_density,
+        'spectrum_df': frequencies[1] - frequencies[0],
     }
 
 
