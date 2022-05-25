@@ -138,19 +138,19 @@ def remove_blacklisted_cdip(ds):
 
 def filter_low_swh(ds):
     """Remove all records with low significant wave heights."""
-    return ds['sea_state_30m_significant_wave_height_spectral'] > 1.0
+    return ds['sea_state_dynamic_significant_wave_height_spectral'] > 1.0
 
 
 def filter_undersampled(ds):
     """Remove all records that are undersampled."""
     nyquist_frequency = 0.5 * ds['meta_sampling_rate']
-    mean_frequency = 1. / (ds['sea_state_30m_mean_period_spectral'] / np.timedelta64(1, 's'))
+    mean_frequency = 1. / (ds['sea_state_dynamic_mean_period_spectral'] / np.timedelta64(1, 's'))
     return 3.2 * mean_frequency < nyquist_frequency
 
 
 def filter_drifting(ds):
     """Remove all records with excessive low-frequency components."""
-    return ds['sea_state_30m_rel_energy_in_frequency_interval'].sel(meta_frequency_band=1) > 0.1
+    return ds['sea_state_dynamic_rel_energy_in_frequency_interval'].sel(meta_frequency_band=1) > 0.1
 
 
 def run_postprocessing(ds, num_filtered_dict=None, chunk_size=10_000):
